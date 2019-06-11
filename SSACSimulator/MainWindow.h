@@ -1,6 +1,6 @@
 /***************************************************************
-QGVCore Sample
-Copyright (c) 2014, Bergont Nicolas, All rights reserved.
+SSACSimulator application
+Copyright (c) 2019, Manuel Sanchez, All rights reserved.
 
 This library is free software; you can redistribute it and/or
 modify it under the terms of the GNU Lesser General Public
