@@ -25,20 +25,18 @@ License along with this library.
 #include <QMessageBox>
 #include "businessprocess.h"
 #include <QtDebug>
+#include <QFileDialog>
 
 MainWindow::MainWindow(QWidget *parent) :
     QMainWindow(parent),
     ui(new Ui::MainWindow),
+    _scene(nullptr),
     currentBpm(new BusinessProcessModel())
+
 {
     ui->setupUi(this);
 
-    _scene = new QGVScene("DEMO", this);
-    ui->graphicsView->setScene(_scene);
-
-    connect(_scene, SIGNAL(nodeContextMenu(QGVNode*)), SLOT(nodeContextMenu(QGVNode*)));
-    connect(_scene, SIGNAL(nodeDoubleClick(QGVNode*)), SLOT(nodeDoubleClick(QGVNode*)));
-    connect(_scene, SIGNAL(edgeDoubleClick(QGVEdge*)), SLOT(edgeDoubleClick(QGVEdge*)));
+    createNewScene();
 }
 
 MainWindow::~MainWindow()
@@ -47,9 +45,21 @@ MainWindow::~MainWindow()
     delete currentBpm;
 }
 
-void MainWindow::drawGraph()
+void MainWindow::drawGraph(QString filename)
 {
-    currentBpm->Load("D:\\Users\\mbsanchez\\Documents\\Academia\\ULA\\Doctorado\\DataSets I4.0\\process graph.p");
+    qInfo() << "Loading file: " << filename;
+    int errors = currentBpm->Load(filename);
+
+    if(errors){
+        QMessageBox::information(this, APP_NAME, "We've found errors loading the process model, check the log file for details");
+
+        return;
+    }
+
+    qInfo() << "Process file was loaded without errors";
+
+    //Create New Scene
+    createNewScene();
 
     //Configure scene attributes
     _scene->setGraphAttribute("label", currentBpm->processName());
@@ -95,6 +105,7 @@ void MainWindow::drawGraph()
     _scene->applyLayout();
 
     //Fit in view
+    ui->graphicsView->items().clear();
     ui->graphicsView->fitInView(_scene->sceneRect(), Qt::KeepAspectRatio);
 }
 
@@ -135,3 +146,73 @@ void MainWindow::edgeDoubleClick(QGVEdge *edge)
 
     QMessageBox::information(this, tr("Edge %1 Info").arg(tedge->name()), tr("Cases %1, Avg Time %2").arg(QString::number(tedge->cases()), QString::number((double)tedge->time())));
 }
+
+void MainWindow::exitClicked()
+{
+    if(QMessageBox::question( this, APP_NAME, "Do you want to close?") == QMessageBox::Yes){
+        qApp->exit(0);
+    }
+}
+
+void MainWindow::openClicked()
+{
+    QString filename =  QFileDialog::getOpenFileName(
+              this,
+              "Open Business Process Model",
+              QDir::currentPath(),
+              "All files (*.*) ;; BP files (*.p)");
+
+    if( !filename.isNull() )
+    {
+        drawGraph(filename);
+    }
+}
+
+void MainWindow::openTestDataClicked()
+{
+
+}
+
+void MainWindow::startSimulationClicked()
+{
+
+}
+
+void MainWindow::stopSimulationClicked()
+{
+
+}
+
+void MainWindow::pauseSimulationClicked()
+{
+
+}
+
+void MainWindow::restartSimulationClicked()
+{
+
+}
+
+void MainWindow::closeEvent(QCloseEvent *event)
+{
+    if(QMessageBox::question( this, APP_NAME, "Do you want to close?") == QMessageBox::Yes){
+        qApp->exit(0);
+    } else {
+        event->ignore();
+    }
+}
+
+void MainWindow::createNewScene()
+{
+    if(_scene){
+        _scene->clear();
+        delete _scene;
+    }
+    _scene = new QGVScene("DEMO", this);
+    ui->graphicsView->setScene(_scene);
+
+    connect(_scene, SIGNAL(nodeContextMenu(QGVNode*)), SLOT(nodeContextMenu(QGVNode*)));
+    connect(_scene, SIGNAL(nodeDoubleClick(QGVNode*)), SLOT(nodeDoubleClick(QGVNode*)));
+    connect(_scene, SIGNAL(edgeDoubleClick(QGVEdge*)), SLOT(edgeDoubleClick(QGVEdge*)));
+}
+

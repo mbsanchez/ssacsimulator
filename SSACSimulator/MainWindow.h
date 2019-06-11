@@ -33,12 +33,23 @@ class MainWindow : public QMainWindow
 public:
     explicit MainWindow(QWidget *parent = nullptr);
     ~MainWindow();
-    void drawGraph();
+    void drawGraph(QString filename);
 
 private slots:
     void nodeContextMenu(QGVNode* node);
     void nodeDoubleClick(QGVNode* node);
     void edgeDoubleClick(QGVEdge* edge);
+    void exitClicked();
+    void openClicked();
+    void openTestDataClicked();
+    void startSimulationClicked();
+    void stopSimulationClicked();
+    void pauseSimulationClicked();
+    void restartSimulationClicked();
+
+protected:
+    void closeEvent(QCloseEvent *event) override final;
+    void createNewScene();
 
 private:
     Ui::MainWindow *ui;

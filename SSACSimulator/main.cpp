@@ -35,7 +35,6 @@ int main(int argc, char *argv[])
     qInfo() << "Application " APP_NAME " Started";
 
     w.show();
-    w.drawGraph();
     int exitCode = a.exec();
 
     qInfo() << "Application " APP_NAME " Finished";
