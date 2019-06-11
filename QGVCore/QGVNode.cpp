@@ -68,10 +68,22 @@ void QGVNode::paint(QPainter * painter, const QStyleOptionGraphicsItem *, QWidge
 
     painter->setPen(QGVCore::toColor(getAttribute("labelfontcolor")));
 
+    QString xlabel = getAttribute("xlabel");
+
     const QRectF rect = boundingRect().adjusted(2,2,-2,-2); //Margin
     if(_icon.isNull())
     {
-        painter->drawText(rect, Qt::AlignCenter , QGVNode::label());
+        if(!xlabel.isEmpty()){
+            painter->drawText(rect.adjusted(0,0,0, -rect.height()/3), Qt::AlignCenter , QGVNode::label());
+
+            const QRectF _xrect = rect.adjusted(0, rect.height()*2/3, 0, 0);
+            QFont f = painter->font();
+            f.setPointSize(static_cast<int>(f.pointSize() * 0.8f));
+            painter->setFont(f);
+            painter->drawText(_xrect, Qt::AlignTop | Qt::AlignHCenter, xlabel);
+        }else {
+            painter->drawText(rect, Qt::AlignCenter , QGVNode::label());
+        }
     }
     else
     {

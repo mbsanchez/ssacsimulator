@@ -1,0 +1,163 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>MainWindow</class>
+ <widget class="QMainWindow" name="MainWindow">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>817</width>
+    <height>567</height>
+   </rect>
+  </property>
+  <property name="windowTitle">
+   <string>Self-supervising autonomic cycle simulator</string>
+  </property>
+  <widget class="QWidget" name="centralWidget">
+   <layout class="QVBoxLayout" name="verticalLayout">
+    <item>
+     <widget class="QGraphicsViewEc" name="graphicsView">
+      <property name="renderHints">
+       <set>QPainter::Antialiasing|QPainter::SmoothPixmapTransform|QPainter::TextAntialiasing</set>
+      </property>
+      <property name="dragMode">
+       <enum>QGraphicsView::ScrollHandDrag</enum>
+      </property>
+     </widget>
+    </item>
+   </layout>
+  </widget>
+  <widget class="QMenuBar" name="menuBar">
+   <property name="geometry">
+    <rect>
+     <x>0</x>
+     <y>0</y>
+     <width>817</width>
+     <height>21</height>
+    </rect>
+   </property>
+   <widget class="QMenu" name="menu_File">
+    <property name="title">
+     <string>&amp;File</string>
+    </property>
+    <addaction name="openAction"/>
+    <addaction name="openTestDataAction"/>
+    <addaction name="separator"/>
+    <addaction name="exitAction"/>
+   </widget>
+   <widget class="QMenu" name="menuRun">
+    <property name="title">
+     <string>&amp;Run</string>
+    </property>
+    <addaction name="startAction"/>
+    <addaction name="stopAction"/>
+    <addaction name="pauseAction"/>
+    <addaction name="restartAction"/>
+   </widget>
+   <addaction name="menu_File"/>
+   <addaction name="menuRun"/>
+  </widget>
+  <widget class="QToolBar" name="mainToolBar">
+   <attribute name="toolBarArea">
+    <enum>TopToolBarArea</enum>
+   </attribute>
+   <attribute name="toolBarBreak">
+    <bool>false</bool>
+   </attribute>
+  </widget>
+  <widget class="QStatusBar" name="statusBar"/>
+  <action name="openAction">
+   <property name="icon">
+    <iconset resource="ress.qrc">
+     <normaloff>:/assets/icons/open.ico</normaloff>:/assets/icons/open.ico</iconset>
+   </property>
+   <property name="text">
+    <string>&amp;Open Model...</string>
+   </property>
+   <property name="toolTip">
+    <string>Open new Business Process Model</string>
+   </property>
+  </action>
+  <action name="exitAction">
+   <property name="icon">
+    <iconset resource="ress.qrc">
+     <normaloff>:/assets/icons/close.ico</normaloff>:/assets/icons/close.ico</iconset>
+   </property>
+   <property name="text">
+    <string>&amp;Exit</string>
+   </property>
+   <property name="toolTip">
+    <string>Close application</string>
+   </property>
+  </action>
+  <action name="startAction">
+   <property name="icon">
+    <iconset resource="ress.qrc">
+     <normaloff>:/assets/icons/play.ico</normaloff>:/assets/icons/play.ico</iconset>
+   </property>
+   <property name="text">
+    <string>&amp;Start</string>
+   </property>
+   <property name="toolTip">
+    <string>Start Autonomic Cycle Simulation</string>
+   </property>
+  </action>
+  <action name="stopAction">
+   <property name="icon">
+    <iconset resource="ress.qrc">
+     <normaloff>:/assets/icons/stop.ico</normaloff>:/assets/icons/stop.ico</iconset>
+   </property>
+   <property name="text">
+    <string>S&amp;top</string>
+   </property>
+   <property name="toolTip">
+    <string>Stop Simulation</string>
+   </property>
+  </action>
+  <action name="pauseAction">
+   <property name="icon">
+    <iconset resource="ress.qrc">
+     <normaloff>:/assets/icons/pause.ico</normaloff>:/assets/icons/pause.ico</iconset>
+   </property>
+   <property name="text">
+    <string>&amp;Pause</string>
+   </property>
+   <property name="toolTip">
+    <string>Pause Simulation</string>
+   </property>
+  </action>
+  <action name="restartAction">
+   <property name="icon">
+    <iconset resource="ress.qrc">
+     <normaloff>:/assets/icons/restart.ico</normaloff>:/assets/icons/restart.ico</iconset>
+   </property>
+   <property name="text">
+    <string>&amp;Restart</string>
+   </property>
+   <property name="toolTip">
+    <string>Restart Simulation</string>
+   </property>
+  </action>
+  <action name="openTestDataAction">
+   <property name="icon">
+    <iconset resource="ress.qrc">
+     <normaloff>:/assets/icons/test_data.ico</normaloff>:/assets/icons/test_data.ico</iconset>
+   </property>
+   <property name="text">
+    <string>Open test &amp;data</string>
+   </property>
+  </action>
+ </widget>
+ <layoutdefault spacing="6" margin="11"/>
+ <customwidgets>
+  <customwidget>
+   <class>QGraphicsViewEc</class>
+   <extends>QGraphicsView</extends>
+   <header>QGraphicsViewEc.h</header>
+  </customwidget>
+ </customwidgets>
+ <resources>
+  <include location="ress.qrc"/>
+ </resources>
+ <connections/>
+</ui>

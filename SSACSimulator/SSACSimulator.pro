@@ -8,7 +8,7 @@ QT       += core gui
 
 greaterThan(QT_MAJOR_VERSION, 4): QT += widgets
 
-TARGET = Sample
+TARGET = SSACSimulator
 TEMPLATE = app
 
 DESTDIR = ../bin
@@ -17,6 +17,7 @@ DESTDIR = ../bin
 LIBS += -L$$OUT_PWD/../lib -lQGVCore
 INCLUDEPATH += $$PWD/../QGVCore
 DEPENDPATH += $$PWD/../QGVCore
+DEFINES += APP_NAME="\\\"$$TARGET\\\""
 
 #GraphViz librairie
 !include(../QGVCore/GraphViz.pri) {
@@ -25,10 +26,12 @@ DEPENDPATH += $$PWD/../QGVCore
 
 SOURCES += main.cpp\
         MainWindow.cpp \
-    QGraphicsViewEc.cpp
+    QGraphicsViewEc.cpp \
+    businessprocess.cpp
 
 HEADERS  += MainWindow.h \
-    QGraphicsViewEc.h
+    QGraphicsViewEc.h \
+    businessprocess.h
 
 FORMS    += MainWindow.ui
 

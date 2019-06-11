@@ -86,7 +86,7 @@ QGVEdge *QGVScene::addEdge(QGVNode *source, QGVNode *target, const QString &labe
         return 0;
     }
 
-    QGVEdge *item = new QGVEdge(new QGVEdgePrivate(edge), this);
+    QGVEdge *item = new QGVEdge(new QGVEdgePrivate(edge, source, target), this);
     item->setLabel(label);
     addItem(item);
     _edges.append(item);

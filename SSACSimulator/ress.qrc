@@ -1,0 +1,11 @@
+<RCC>
+    <qresource prefix="/assets">
+        <file>icons/close.ico</file>
+        <file>icons/open.ico</file>
+        <file>icons/pause.ico</file>
+        <file>icons/play.ico</file>
+        <file>icons/restart.ico</file>
+        <file>icons/stop.ico</file>
+        <file>icons/test_data.ico</file>
+    </qresource>
+</RCC>

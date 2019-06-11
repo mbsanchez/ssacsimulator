@@ -45,6 +45,8 @@ public:
 
     void setAttribute(const QString &name, const QString &value);
     QString getAttribute(const QString &name) const;
+    QGVNode* getSource();
+    QGVNode* getTarget();
 
     void updateLayout();
 

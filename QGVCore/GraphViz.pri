@@ -9,7 +9,7 @@ unix {
 }
 win32 {
  #Configure Windows GraphViz path here :
- GRAPHVIZ_PATH = "D:/Program Files (x86)/Graphviz2.36/"
+ GRAPHVIZ_PATH = $$PWD/../graphviz
  DEFINES += WIN32_DLL
  DEFINES += GVDLL
  INCLUDEPATH += $$GRAPHVIZ_PATH/include/graphviz

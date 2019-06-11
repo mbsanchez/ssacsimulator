@@ -25,22 +25,25 @@ namespace Ui {
 class MainWindow;
 }
 
+class BusinessProcessModel;
 class MainWindow : public QMainWindow
 {
     Q_OBJECT
     
 public:
-    explicit MainWindow(QWidget *parent = 0);
+    explicit MainWindow(QWidget *parent = nullptr);
     ~MainWindow();
     void drawGraph();
 
 private slots:
     void nodeContextMenu(QGVNode* node);
     void nodeDoubleClick(QGVNode* node);
+    void edgeDoubleClick(QGVEdge* edge);
 
 private:
     Ui::MainWindow *ui;
     QGVScene *_scene;
+    BusinessProcessModel *currentBpm;
 };
 
 #endif // MAINWINDOW_H

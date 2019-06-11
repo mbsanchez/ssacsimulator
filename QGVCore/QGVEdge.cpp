@@ -110,6 +110,16 @@ QString QGVEdge::getAttribute(const QString &name) const
     return QString();
 }
 
+QGVNode *QGVEdge::getSource()
+{
+    return _edge->source();
+}
+
+QGVNode *QGVEdge::getTarget()
+{
+    return _edge->target();
+}
+
 void QGVEdge::updateLayout()
 {
     prepareGeometryChange();
