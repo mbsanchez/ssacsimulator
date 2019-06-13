@@ -24,6 +24,9 @@ License along with this library.
 #include "QGVSubGraph.h"
 #include <QMessageBox>
 #include "businessprocess.h"
+#include "smartobject.h"
+#include "simulationengine.h"
+#include "simulationevent.h"
 #include <QtDebug>
 #include <QFileDialog>
 
@@ -31,18 +34,32 @@ MainWindow::MainWindow(QWidget *parent) :
     QMainWindow(parent),
     ui(new Ui::MainWindow),
     _scene(nullptr),
-    currentBpm(new BusinessProcessModel())
-
+    currentBpm(new BusinessProcessModel()),
+    _simEngine(nullptr),
+    _simData(nullptr)
 {
     ui->setupUi(this);
+    _simData = new SimulationData();
+    _simData->loadData("");
 
     createNewScene();
+    EnableButtons(INITIAL_CONFIG);
 }
 
 MainWindow::~MainWindow()
 {
     delete ui;
     delete currentBpm;
+
+    if(_simData)
+        delete _simData;
+
+    if(_simEngine){
+        if(_simEngine->isRunning())
+            _simEngine->stop();
+
+        delete _simEngine;
+    }
 }
 
 void MainWindow::drawGraph(QString filename)
@@ -83,6 +100,7 @@ void MainWindow::drawGraph(QString filename)
 
     for(BusinessProcessModel::Actor *actor : currentBpm->actors().values()){
         QGVNode *node = _scene->addNode(actor->name());
+        actor->setGvNode(node);
         node->setAttribute("xlabel", QString::number(actor->cases()));
         nodes.insert(actor->name(), node);
     }
@@ -96,7 +114,8 @@ void MainWindow::drawGraph(QString filename)
             if(!edge->show())
                 continue;
 
-            _scene->addEdge(nodes[edge->begin()], nodes[edge->end()], QString::number((double)edge->time()));
+            QGVEdge *gvEdge = _scene->addEdge(nodes[edge->begin()], nodes[edge->end()], QString::number((double)edge->time()));
+            edge->setGvEdge(gvEdge);
             /*_scene->addEdge(node1, node2, "TTL")->setAttribute("color", "red");*/
         }
     }
@@ -107,6 +126,7 @@ void MainWindow::drawGraph(QString filename)
     //Fit in view
     ui->graphicsView->items().clear();
     ui->graphicsView->fitInView(_scene->sceneRect(), Qt::KeepAspectRatio);
+    EnableButtons(MODEL_OPENED);
 }
 
 void MainWindow::nodeContextMenu(QGVNode *node)
@@ -170,27 +190,72 @@ void MainWindow::openClicked()
 
 void MainWindow::openTestDataClicked()
 {
+    EnableButtons(DATA_OPENED);
+    if(_simEngine){
+        if(_simEngine->isRunning())
+            _simEngine->stop();
 
+        delete _simEngine;
+    }
+    _simEngine = new SimulationEngine(currentBpm, _simData, _scene);
+    connect(_simEngine, &SimulationEngine::started, [this](){
+        EnableButtons(SIM_STARTED);
+    });
+    connect(_simEngine, &SimulationEngine::finished, [this](){
+        EnableButtons(SIM_STOPPED);
+    });
+    connect(_simEngine, &SimulationEngine::paused, [this](){
+        EnableButtons(SIM_PAUSED);
+    });
+    connect(_simEngine, &SimulationEngine::restarted, [this](){
+        EnableButtons(SIM_RESTARTED);
+    });
 }
 
 void MainWindow::startSimulationClicked()
 {
 
+    if(_simEngine == nullptr){
+        qCritical() << "Error the simulation engine is not ready";
+        return;
+    }
+
+    EnableButtons(SIM_STARTED);
+    _simEngine->start();
 }
 
 void MainWindow::stopSimulationClicked()
 {
 
+    if(_simEngine == nullptr){
+        qCritical() << "Error the simulation engine is not ready";
+        return;
+    }
+
+    EnableButtons(SIM_STOPPED);
+    _simEngine->stop();
 }
 
 void MainWindow::pauseSimulationClicked()
 {
+    if(_simEngine == nullptr){
+        qCritical() << "Error the simulation engine is not ready";
+        return;
+    }
 
+    EnableButtons(SIM_PAUSED);
+    _simEngine->pause();
 }
 
 void MainWindow::restartSimulationClicked()
 {
+    if(_simEngine == nullptr){
+        qCritical() << "Error the simulation engine is not ready";
+        return;
+    }
 
+    EnableButtons(SIM_RESTARTED);
+    _simEngine->restart();
 }
 
 void MainWindow::closeEvent(QCloseEvent *event)
@@ -214,5 +279,57 @@ void MainWindow::createNewScene()
     connect(_scene, SIGNAL(nodeContextMenu(QGVNode*)), SLOT(nodeContextMenu(QGVNode*)));
     connect(_scene, SIGNAL(nodeDoubleClick(QGVNode*)), SLOT(nodeDoubleClick(QGVNode*)));
     connect(_scene, SIGNAL(edgeDoubleClick(QGVEdge*)), SLOT(edgeDoubleClick(QGVEdge*)));
+}
+
+void MainWindow::EnableButtons(MainWindow::AppAction action)
+{
+    switch(action){
+    case INITIAL_CONFIG:
+        ui->openAction->setEnabled(true);
+        ui->openTestDataAction->setEnabled(false);
+        ui->startAction->setEnabled(false);
+        ui->stopAction->setEnabled(false);
+        ui->pauseAction->setEnabled(false);
+        ui->restartAction->setEnabled(false);
+        break;
+    case MODEL_OPENED:
+        ui->openTestDataAction->setEnabled(true);
+        ui->startAction->setEnabled(false);
+        ui->stopAction->setEnabled(false);
+        ui->pauseAction->setEnabled(false);
+        ui->restartAction->setEnabled(false);
+        break;
+    case DATA_OPENED:
+        ui->startAction->setEnabled(true);
+        ui->stopAction->setEnabled(false);
+        ui->pauseAction->setEnabled(false);
+        ui->restartAction->setEnabled(false);
+        break;
+    case SIM_STARTED:
+    case SIM_RESTARTED:
+        ui->openAction->setEnabled(false);
+        ui->openTestDataAction->setEnabled(false);
+        ui->startAction->setEnabled(false);
+        ui->stopAction->setEnabled(true);
+        ui->pauseAction->setEnabled(true);
+        ui->restartAction->setEnabled(false);
+        break;
+    case SIM_STOPPED:
+        ui->openAction->setEnabled(true);
+        ui->openTestDataAction->setEnabled(true);
+        ui->startAction->setEnabled(true);
+        ui->stopAction->setEnabled(false);
+        ui->pauseAction->setEnabled(false);
+        ui->restartAction->setEnabled(false);
+        break;
+    case SIM_PAUSED:
+        ui->openAction->setEnabled(true);
+        ui->openTestDataAction->setEnabled(true);
+        ui->startAction->setEnabled(true);
+        ui->stopAction->setEnabled(true);
+        ui->pauseAction->setEnabled(false);
+        ui->restartAction->setEnabled(true);
+        break;
+    }
 }
 

@@ -18,6 +18,8 @@ License along with this library.
 #include "businessprocess.h"
 #include <QFile>
 #include <QDebug>
+#include <QGVNode.h>
+#include <QGVEdge.h>
 
 BusinessProcessModel::BusinessProcessModel()
 {
@@ -271,6 +273,7 @@ BusinessProcessModel::Edge::Edge(QString begin, QString end, float time, qulongl
     m_time = time;
     m_cases = cases;
     m_show = show;
+    m_gvEdge = nullptr;
 }
 
 QString BusinessProcessModel::Edge::name() const
@@ -303,11 +306,22 @@ bool BusinessProcessModel::Edge::show() const
     return m_show;
 }
 
+QGVEdge *BusinessProcessModel::Edge::gvEdge() const
+{
+    return m_gvEdge;
+}
+
+void BusinessProcessModel::Edge::setGvEdge(QGVEdge *gvEdge)
+{
+    m_gvEdge = gvEdge;
+}
+
 BusinessProcessModel::Actor::Actor(const QString &name, BusinessProcessModel::NodeType type)
 {
     m_name = name;
     m_type = type;
     m_cases = 0;
+    m_gvNode = nullptr;
 }
 
 QString BusinessProcessModel::Actor::name() const
@@ -328,4 +342,14 @@ qulonglong BusinessProcessModel::Actor::cases() const
 void BusinessProcessModel::Actor::setCases(qulonglong cases)
 {
     m_cases = cases;
+}
+
+QGVNode *BusinessProcessModel::Actor::gvNode() const
+{
+    return m_gvNode;
+}
+
+void BusinessProcessModel::Actor::setGvNode(QGVNode *gvNode)
+{
+    m_gvNode = gvNode;
 }

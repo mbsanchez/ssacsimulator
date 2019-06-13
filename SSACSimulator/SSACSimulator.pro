@@ -27,11 +27,17 @@ DEFINES += APP_NAME="\\\"$$TARGET\\\""
 SOURCES += main.cpp\
         MainWindow.cpp \
     QGraphicsViewEc.cpp \
-    businessprocess.cpp
+    businessprocess.cpp \
+    simulationengine.cpp \
+    simulationevent.cpp \
+    smartobject.cpp
 
 HEADERS  += MainWindow.h \
     QGraphicsViewEc.h \
-    businessprocess.h
+    businessprocess.h \
+    simulationengine.h \
+    simulationevent.h \
+    smartobject.h
 
 FORMS    += MainWindow.ui
 

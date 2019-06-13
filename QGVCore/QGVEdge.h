@@ -56,6 +56,8 @@ public:
         return Type;
     }
 
+    QPainterPath getPath() const;
+
 private:
     QGVEdge(QGVEdgePrivate *edge, QGVScene *scene);
 

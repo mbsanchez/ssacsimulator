@@ -173,3 +173,8 @@ QPolygonF QGVEdge::toArrow(const QLineF &line) const
 
     return polygon;
 }
+
+QPainterPath QGVEdge::getPath() const
+{
+    return _path;
+}

@@ -26,10 +26,15 @@ class MainWindow;
 }
 
 class BusinessProcessModel;
+class SimulationEngine;
+class SimulationData;
+
 class MainWindow : public QMainWindow
 {
     Q_OBJECT
     
+    enum AppAction { INITIAL_CONFIG, MODEL_OPENED, DATA_OPENED, SIM_STARTED, SIM_PAUSED, SIM_STOPPED, SIM_RESTARTED};
+
 public:
     explicit MainWindow(QWidget *parent = nullptr);
     ~MainWindow();
@@ -50,11 +55,14 @@ private slots:
 protected:
     void closeEvent(QCloseEvent *event) override final;
     void createNewScene();
+    void EnableButtons(AppAction action);
 
 private:
     Ui::MainWindow *ui;
     QGVScene *_scene;
     BusinessProcessModel *currentBpm;
+    SimulationEngine *_simEngine;
+    SimulationData *_simData;
 };
 
 #endif // MAINWINDOW_H

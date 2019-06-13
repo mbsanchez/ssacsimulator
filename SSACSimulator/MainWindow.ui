@@ -47,7 +47,7 @@
    </widget>
    <widget class="QMenu" name="menuRun">
     <property name="title">
-     <string>&amp;Run</string>
+     <string>S&amp;imulation</string>
     </property>
     <addaction name="startAction"/>
     <addaction name="stopAction"/>
@@ -115,6 +115,9 @@
    </property>
   </action>
   <action name="pauseAction">
+   <property name="enabled">
+    <bool>false</bool>
+   </property>
    <property name="icon">
     <iconset resource="ress.qrc">
      <normaloff>:/assets/icons/pause.ico</normaloff>:/assets/icons/pause.ico</iconset>
@@ -127,6 +130,9 @@
    </property>
   </action>
   <action name="restartAction">
+   <property name="enabled">
+    <bool>false</bool>
+   </property>
    <property name="icon">
     <iconset resource="ress.qrc">
      <normaloff>:/assets/icons/restart.ico</normaloff>:/assets/icons/restart.ico</iconset>
@@ -139,6 +145,9 @@
    </property>
   </action>
   <action name="openTestDataAction">
+   <property name="enabled">
+    <bool>false</bool>
+   </property>
    <property name="icon">
     <iconset resource="ress.qrc">
      <normaloff>:/assets/icons/test_data.ico</normaloff>:/assets/icons/test_data.ico</iconset>
@@ -244,7 +253,7 @@
    <sender>pauseAction</sender>
    <signal>triggered()</signal>
    <receiver>MainWindow</receiver>
-   <slot>stopSimulationClicked()</slot>
+   <slot>pauseSimulationClicked()</slot>
    <hints>
     <hint type="sourcelabel">
      <x>-1</x>

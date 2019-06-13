@@ -22,6 +22,9 @@ License along with this library.
 #include <QHash>
 #include <QList>
 
+class QGVNode;
+class QGVEdge;
+
 class BusinessProcessModel
 {
 
@@ -34,11 +37,14 @@ public:
         NodeType type() const;
         qulonglong cases() const;
         void setCases(qulonglong cases);
+        QGVNode *gvNode() const;
+        void setGvNode(QGVNode *gvNode);
 
     private:
         QString m_name;
         NodeType m_type;
         qulonglong m_cases;
+        QGVNode *m_gvNode;
     };
 
     class Edge{
@@ -50,6 +56,8 @@ public:
         float time() const;
         qulonglong cases() const;
         bool show() const;
+        QGVEdge *gvEdge() const;
+        void setGvEdge(QGVEdge *gvEdge);
 
     private:
         QString m_name;
@@ -58,6 +66,7 @@ public:
         float m_time;
         qulonglong m_cases;
         bool m_show;
+        QGVEdge *m_gvEdge;
     };
 
 public:
