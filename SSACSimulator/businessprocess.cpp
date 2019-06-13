@@ -171,7 +171,7 @@ int BusinessProcessModel::Load(QString filename)
     }
 
     if(m_edges.size() == 0){
-        qInfo() << "Error: Any transition has been defined";
+        qInfo() << "Error: Any connection has been defined";
         errors++;
     }
 

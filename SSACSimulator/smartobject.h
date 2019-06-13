@@ -46,6 +46,8 @@ public:
     void setPathEdge(QGVEdge *pathEdge, qreal animationTimeInMin);
     void nextAnimationStep(long dxMillis);
     bool isAnimationFinished();
+    QString endActor() const;
+    void setEndActor(const QString &value);
 
 private:
     void finished();
@@ -57,6 +59,7 @@ private:
 
 private:
     QString _objectID;
+    QString _endActor;
     QGVEdge *_pathEdge;
     long _currentTime;
     long _currentSegment;

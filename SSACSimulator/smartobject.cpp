@@ -49,7 +49,7 @@ void SmartObject::paint(QPainter *painter, const QStyleOptionGraphicsItem *optio
 
 QRectF SmartObject::boundingRect() const
 {
-    return QRectF(0,0,25,25);
+    return QRectF(0,0,15,15);
 }
 
 QString SmartObject::objectID() const
@@ -193,4 +193,14 @@ QPointF SmartObject::centerPoint()
     QRectF rect = boundingRect();
 
     return QPointF(rect.width() / 2, rect.height() / 2);
+}
+
+QString SmartObject::endActor() const
+{
+    return _endActor;
+}
+
+void SmartObject::setEndActor(const QString &value)
+{
+    _endActor = value;
 }

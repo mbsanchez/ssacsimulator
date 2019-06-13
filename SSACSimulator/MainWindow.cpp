@@ -55,10 +55,17 @@ MainWindow::~MainWindow()
         delete _simData;
 
     if(_simEngine){
-        if(_simEngine->isRunning())
+        _simEngine->disconnect();
+        if(_simEngine->isRunning()) {
             _simEngine->stop();
+        }
 
         delete _simEngine;
+    }
+
+    if(_scene) {
+        _scene->disconnect();
+        delete _scene;
     }
 }
 

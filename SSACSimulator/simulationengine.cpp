@@ -44,22 +44,26 @@ SimulationEngine::~SimulationEngine()
     clear();
 }
 
-void SimulationEngine::start()
+bool SimulationEngine::start()
 {
+    if(_timer.isActive())
+        return false;
+
     if(!simulationParamsAreValid()){
         qInfo() << "Simulation can't be started due to invalid simulation params";
-        return;
+        return false;
     }
 
     _timer.start();
     emit started();
+
+    return true;
 }
 
 void SimulationEngine::pause()
 {
-    if(!simulationParamsAreValid()){
-        qInfo() << "Invalid simulation params detected on pause";
-    }
+    if(!_timer.isActive())
+        return;
 
     _timer.stop();
     emit paused();
@@ -67,9 +71,8 @@ void SimulationEngine::pause()
 
 void SimulationEngine::stop()
 {
-    if(!simulationParamsAreValid()){
-        qInfo() << "Invalid simulation params detected on pause";
-    }
+    if(!_timer.isActive())
+        return;
 
     _timer.stop();
     clear();
@@ -78,15 +81,12 @@ void SimulationEngine::stop()
 
 void SimulationEngine::restart()
 {
+    if(_timer.isActive())
+        return;
+
     stop();
-
-    _currentTimeMillis = 0;
-    _lastEventTimeMillisSinceStart = 0;
-    _lastEvent = -1;
-    _data->restart();
-
-    start();
-    emit restarted();
+    if(start())
+        emit restarted();
 }
 
 void SimulationEngine::setCurrentSpeed(float currentSpeed)
@@ -116,8 +116,9 @@ void SimulationEngine::nextSimulationStep()
         return;
     }
 
-    bool processNextEvent = false;
     long dxMillis = static_cast<long>(_timer.interval() * _currentSpeed);
+
+    bool processNextEvent = false;
     long eventTransitionTime = static_cast<long>(event->startTime() * 60 * 1000);
     long nextEventStartTime = _lastEventTimeMillisSinceStart + eventTransitionTime;
 
@@ -148,9 +149,20 @@ void SimulationEngine::nextSimulationStep()
                 << smo->isVisible();
     }
 
+    QList<SmartObject*> removeActors;
     // update animations
     for(SmartObject *obj : _smartObjects){
+        //Update the object
         obj->nextAnimationStep(dxMillis);
+
+        //Check if the object reached some end actor.
+        if(actorIsDone(obj)){
+            removeActors.append(obj);
+        }
+    }
+
+    for(SmartObject *obj : removeActors){
+        leaveSmartObject(obj);
     }
 }
 
@@ -169,23 +181,32 @@ void SimulationEngine::updateAnimationEdge(SmartObject *smo, SimulationEvent *ev
 {
     BusinessProcessModel::Edge *pEdge = nullptr;
 
-    if(_processModel->edges().contains(event->beginActor()) &&
-            _processModel->edges()[event->beginActor()].contains(event->endActor())){
-        pEdge = _processModel->edges()[event->beginActor()][event->endActor()];
+    if(_processModel->edges().contains(event->beginActor())){
+        if(_processModel->edges()[event->beginActor()].contains(event->endActor()))
+            pEdge = _processModel->edges()[event->beginActor()][event->endActor()];
+        else {
+            qCritical() << QString("Error: connection: (%1-%2) doesn't exist in the model").arg(event->beginActor(), event->endActor());
+        }
+    } else {
+        qCritical() << QString("Error the actor: '%1' doesn't exist in the model").arg(event->beginActor());
     }
 
-    if(pEdge == nullptr || pEdge->show() == false || pEdge->gvEdge() == nullptr)
+    if(pEdge == nullptr || pEdge->show() == false || pEdge->gvEdge() == nullptr){
         smo->setPathEdge(nullptr, 0);
-    else {
+        smo->setEndActor("");
+    }else {
         QGVEdge *gvEdge = pEdge->gvEdge();
         smo->setPathEdge(gvEdge, static_cast<qreal>(event->transitionTime()));
+        smo->setEndActor(event->endActor());
     }
 }
 
-void SimulationEngine::exitSmartObject(SmartObject *smo)
+void SimulationEngine::leaveSmartObject(SmartObject *smo)
 {
     if(smo == nullptr)
         return;
+
+    qDebug() << QString("The piece %1 has been produced, leaving the system").arg(smo->objectID());
 
     if(_scene != nullptr)
         _scene->removeItem(smo);
@@ -206,9 +227,19 @@ void SimulationEngine::clear()
     _currentTimeMillis = 0;
     _lastEventTimeMillisSinceStart = 0;
     _lastEvent = -1;
+    _data->restart();
 }
 
 bool SimulationEngine::simulationParamsAreValid()
 {
     return _processModel != nullptr && _data != nullptr && _scene != nullptr && _data->eventsCount() > 0;
+}
+
+bool SimulationEngine::actorIsDone(SmartObject *obj)
+{
+    if(obj->isAnimationFinished() && _processModel->endActors().contains(obj->endActor())){
+        return true;
+    }
+
+    return false;
 }

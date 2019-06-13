@@ -31,8 +31,8 @@ class BusinessProcessModel;
 class SimulationEngine : public QObject
 {
 public:
-    const float DEFAULT_SPEED = 20.0f; /* 1 min is animated as 1 sec*/
-    const float DEFAULT_DELAY = 20;
+    const float DEFAULT_SPEED = 200.0f; /* 1 min is animated as 1 sec*/
+    const int DEFAULT_DELAY = 20;
 
 private:
     Q_OBJECT
@@ -40,7 +40,7 @@ private:
 public:
     explicit SimulationEngine(BusinessProcessModel *processModel, SimulationData *data, QGVScene *scene, QObject *parent = nullptr);
     ~SimulationEngine();
-    void start();
+    bool start();
     void pause();
     void stop();
     void restart();
@@ -58,9 +58,10 @@ protected slots:
     void nextSimulationStep();
     SmartObject* enterSmartObject(SimulationEvent *event);
     void updateAnimationEdge(SmartObject *smo, SimulationEvent *event);
-    void exitSmartObject(SmartObject *smo);
+    void leaveSmartObject(SmartObject *smo);
     void clear();
     bool simulationParamsAreValid();
+    bool actorIsDone(SmartObject *obj);
 
 private:
     QGVScene *_scene;
