@@ -18,6 +18,8 @@ License along with this library.
 #include "simulationengine.h"
 #include <QGVScene.h>
 #include <QtDebug>
+#include <cmath>
+#include <limits>
 #include "simulationevent.h"
 #include "smartobject.h"
 #include "businessprocess.h"
@@ -118,6 +120,7 @@ void SimulationEngine::nextSimulationStep()
 
     long dxMillis = static_cast<long>(_timer.interval() * _currentSpeed);
 
+    // Check if it is time to process the next event.
     bool processNextEvent = false;
     long eventTransitionTime = static_cast<long>(event->startTime() * 60 * 1000);
     long nextEventStartTime = _lastEventTimeMillisSinceStart + eventTransitionTime;
@@ -125,12 +128,13 @@ void SimulationEngine::nextSimulationStep()
     if(_currentTimeMillis + dxMillis  >= nextEventStartTime){
         dxMillis = nextEventStartTime - _currentTimeMillis;
         processNextEvent = true;
-        _lastEvent++;
     }
 
     _currentTimeMillis += dxMillis;
 
-    if (processNextEvent) {
+    //Process all the events that start at same time
+    while (processNextEvent) {
+        _lastEvent++;
         SmartObject *smo = nullptr;
 
         //process new events
@@ -147,6 +151,11 @@ void SimulationEngine::nextSimulationStep()
                                                                                      QString::number(event->transitionTime()),
                                                                                      QString::number(_currentTimeMillis))
                 << smo->isVisible();
+
+        event = _data->eventAt(1 + _lastEvent);
+        if(event == nullptr || _currentTimeMillis != static_cast<long>(event->startTime() * 60 * 1000)){
+            processNextEvent = false;
+        }
     }
 
     QList<SmartObject*> removeActors;

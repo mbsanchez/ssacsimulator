@@ -150,6 +150,42 @@ int SimulationData::loadData(QString filename)
 
     _eventList.append(new SimulationEvent("9", "L3_S35", "L3_S36", 2, 103));
     _eventList.append(new SimulationEvent("9", "L3_S36", "L3_S37", 1, 105));
+    _eventList.append(new SimulationEvent("9", "L3_S37", "END", 0, 106));
+
+    _eventList.append(new SimulationEvent("10", "L1_S24", "L2_S27", 0, 106));
+    _eventList.append(new SimulationEvent("10", "L2_S27", "L3_S29", 0, 106));
+    _eventList.append(new SimulationEvent("10", "L3_S29", "L3_S30", 0, 106));
+    _eventList.append(new SimulationEvent("10", "L3_S30", "L3_S32", 0, 106));
+    _eventList.append(new SimulationEvent("10", "L3_S32", "L3_S33", 0, 106));
+    _eventList.append(new SimulationEvent("10", "L3_S33", "L3_S34", 0, 106));
+    _eventList.append(new SimulationEvent("10", "L3_S34", "L3_S35", 1, 106));
+    _eventList.append(new SimulationEvent("11", "L1_S25", "L1_S25", 0, 106));
+    _eventList.append(new SimulationEvent("11", "L1_S25", "L1_S25", 0, 106));
+    _eventList.append(new SimulationEvent("11", "L1_S25", "L2_S26", 0, 106));
+    _eventList.append(new SimulationEvent("11", "L2_S26", "L3_S29", 0, 106));
+    _eventList.append(new SimulationEvent("11", "L3_S29", "L3_S30", 0, 106));
+    _eventList.append(new SimulationEvent("11", "L3_S30", "L3_S31", 0, 106));
+    _eventList.append(new SimulationEvent("11", "L3_S31", "L3_S33", 0, 106));
+    _eventList.append(new SimulationEvent("11", "L3_S33", "L3_S34", 0, 106));
+    _eventList.append(new SimulationEvent("11", "L3_S34", "L3_S36", 2, 106));
+    _eventList.append(new SimulationEvent("14", "L1_S24", "L2_S27", 1, 106));
+    _eventList.append(new SimulationEvent("10", "L3_S35", "L3_S37", 1, 107));
+    _eventList.append(new SimulationEvent("14", "L2_S27", "L3_S29", 4, 107));
+    _eventList.append(new SimulationEvent("10", "L3_S37", "END", 1, 108));
+    _eventList.append(new SimulationEvent("11", "L3_S36", "L3_S37", 1, 108));
+    _eventList.append(new SimulationEvent("11", "L3_S37", "L3_S38", 2, 109));
+    _eventList.append(new SimulationEvent("11", "L3_S38", "END", 1, 110));
+    _eventList.append(new SimulationEvent("14", "L3_S29", "L3_S30", 1, 111));
+    _eventList.append(new SimulationEvent("14", "L3_S30", "L3_S32", 2, 112));
+    _eventList.append(new SimulationEvent("14", "L3_S32", "L3_S33", 3, 114));
+    _eventList.append(new SimulationEvent("14", "L3_S33", "L3_S34", 1, 117));
+    _eventList.append(new SimulationEvent("14", "L3_S34", "L3_S35", 2, 118));
+    _eventList.append(new SimulationEvent("14", "L3_S35", "L3_S37", 1, 120));
+    _eventList.append(new SimulationEvent("14", "L3_S37", "END", 1, 121));
+
+    _eventList.append(new SimulationEvent("13", "L3_S35", "L3_S36", 2, 122));
+    _eventList.append(new SimulationEvent("13", "L3_S36", "L3_S37", 1, 124));
+    _eventList.append(new SimulationEvent("13", "L3_S37", "END", 0, 125));
 
     return 0;
 }

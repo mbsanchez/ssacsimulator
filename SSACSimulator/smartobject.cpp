@@ -33,6 +33,9 @@ SmartObject::SmartObject(QString objectID, QGraphicsItem *parent) : QGraphicsIte
 
 void SmartObject::paint(QPainter *painter, const QStyleOptionGraphicsItem *option, QWidget *widget)
 {
+    Q_UNUSED(option)
+    Q_UNUSED(widget)
+
     QRectF rect = boundingRect();
 
     painter->save();
@@ -97,41 +100,27 @@ void SmartObject::nextAnimationStep(long dxMillis)
         i++;
     }
 
-
-    /*_animationTimeMillis / _pathEdge->getPath().elementCount();
-
-    long xa = _currentTime, ya = _currentSegment;
-    long xb = _animationTimeMillis, yb = _pathEdge->getPath().elementCount() - 1;*/
-
     _currentTime = x;
     if(segment == -1 || segment == _pathEdge->getPath().elementCount()){
         finished();
     } else {
-        //_currentSegment = ya + static_cast<long>((yb - ya) * ((x - xa)/static_cast<float>(xb - xa)));
         _currentSegment = segment;
 
-        /*if(_currentSegment >= yb) {
-            _currentSegment = yb;
+        QPointF a = _pathEdge->getPath().elementAt(_currentSegment);
+        QPointF b = _pathEdge->getPath().elementAt(_currentSegment + 1);
 
+        long animationSteps = static_cast<long>(_slerpData.at(_currentSegment).percent * _animationTimeMillis / static_cast<qreal>(dxMillis));
+
+        if(animationSteps == 0){
+            _currentSegment++;
             centerInCurrentFrame();
-            finished();
-        } else {*/
-            QPointF a = _pathEdge->getPath().elementAt(_currentSegment);
-            QPointF b = _pathEdge->getPath().elementAt(_currentSegment + 1);
+            return;
+        }
 
-            long animationSteps = static_cast<long>(_slerpData.at(_currentSegment).percent * _animationTimeMillis / static_cast<qreal>(dxMillis));
+        qreal px = pos().x() + centerPoint().x() + (b.x() - a.x()) / animationSteps;
+        qreal py = a.y() + (b.y() - a.y()) * ((px - a.x())/(b.x() - a.x()));
 
-            if(animationSteps == 0){
-                _currentSegment++;
-                centerInCurrentFrame();
-                return;
-            }
-
-            qreal px = pos().x() + centerPoint().x() + (b.x() - a.x()) / animationSteps;
-            qreal py = a.y() + (b.y() - a.y()) * ((px - a.x())/(b.x() - a.x()));
-
-            centerInPoint(QPointF(px, py));
-        /*}*/
+        centerInPoint(QPointF(px, py));
     }
 }
 
@@ -179,7 +168,7 @@ void SmartObject::prepareSlerpData()
         sdata.append(lenght);
     }
 
-    if(_totalLenght < 0.01)
+    if(_totalLenght < std::numeric_limits<double>::epsilon())
         return;
 
 

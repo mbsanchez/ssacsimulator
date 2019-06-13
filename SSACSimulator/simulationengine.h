@@ -31,7 +31,7 @@ class BusinessProcessModel;
 class SimulationEngine : public QObject
 {
 public:
-    const float DEFAULT_SPEED = 200.0f; /* 1 min is animated as 1 sec*/
+    const float DEFAULT_SPEED = 20.0f; /* 1 min is animated as 1 sec*/
     const int DEFAULT_DELAY = 20;
 
 private:
