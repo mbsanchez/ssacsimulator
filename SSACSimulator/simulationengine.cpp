@@ -73,9 +73,6 @@ void SimulationEngine::pause()
 
 void SimulationEngine::stop()
 {
-    if(!_timer.isActive())
-        return;
-
     _timer.stop();
     clear();
     emit finished();

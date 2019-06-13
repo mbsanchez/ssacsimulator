@@ -15,6 +15,21 @@
   </property>
   <widget class="QWidget" name="centralWidget">
    <layout class="QVBoxLayout" name="verticalLayout">
+    <property name="spacing">
+     <number>5</number>
+    </property>
+    <property name="leftMargin">
+     <number>5</number>
+    </property>
+    <property name="topMargin">
+     <number>5</number>
+    </property>
+    <property name="rightMargin">
+     <number>5</number>
+    </property>
+    <property name="bottomMargin">
+     <number>5</number>
+    </property>
     <item>
      <widget class="QGraphicsViewEc" name="graphicsView">
       <property name="renderHints">
@@ -58,14 +73,28 @@
    <addaction name="menuRun"/>
   </widget>
   <widget class="QToolBar" name="mainToolBar">
+   <property name="movable">
+    <bool>false</bool>
+   </property>
+   <property name="floatable">
+    <bool>false</bool>
+   </property>
    <attribute name="toolBarArea">
     <enum>TopToolBarArea</enum>
    </attribute>
    <attribute name="toolBarBreak">
     <bool>false</bool>
    </attribute>
+   <addaction name="separator"/>
+   <addaction name="openAction"/>
+   <addaction name="openTestDataAction"/>
+   <addaction name="separator"/>
+   <addaction name="startAction"/>
+   <addaction name="stopAction"/>
+   <addaction name="pauseAction"/>
+   <addaction name="restartAction"/>
+   <addaction name="separator"/>
   </widget>
-  <widget class="QStatusBar" name="statusBar"/>
   <action name="openAction">
    <property name="icon">
     <iconset resource="ress.qrc">
@@ -103,6 +132,9 @@
    </property>
   </action>
   <action name="stopAction">
+   <property name="enabled">
+    <bool>false</bool>
+   </property>
    <property name="icon">
     <iconset resource="ress.qrc">
      <normaloff>:/assets/icons/stop.ico</normaloff>:/assets/icons/stop.ico</iconset>
