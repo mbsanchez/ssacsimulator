@@ -31,8 +31,10 @@ class BusinessProcessModel;
 class SimulationEngine : public QObject
 {
 public:
-    const float DEFAULT_SPEED = 20.0f; /* 1 min is animated as 1 sec*/
-    const int DEFAULT_DELAY = 20;
+    const int DEFAULT_SPEED = 20;       /*1 min is animated in 3 secs*/
+    const int MAX_SPEED = 3000;         /*1 min is animated in 20 ms*/
+    const int MIN_SPEED = 1;            /*1 min is animated in 1 min*/
+    const int DEFAULT_TIME_DELAY = 20;  /*each step is done in 20 ms*/
 
 private:
     Q_OBJECT
@@ -44,8 +46,8 @@ public:
     void pause();
     void stop();
     void restart();
-    void setCurrentSpeed(float currentSpeed);
-    float currentSpeed() const;
+    void setCurrentSpeed(int currentSpeed);
+    int currentSpeed() const;
     bool isRunning();
 
 signals:
@@ -67,7 +69,7 @@ private:
     QGVScene *_scene;
     SimulationData *_data;
     QTimer _timer;
-    float _currentSpeed;
+    int _currentSpeed;
     long _currentTimeMillis;
     long _lastEventTimeMillisSinceStart;
     long _lastEvent;

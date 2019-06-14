@@ -29,6 +29,7 @@ License along with this library.
 #include "simulationevent.h"
 #include <QtDebug>
 #include <QFileDialog>
+#include <QSlider>
 
 MainWindow::MainWindow(QWidget *parent) :
     QMainWindow(parent),
@@ -44,6 +45,11 @@ MainWindow::MainWindow(QWidget *parent) :
 
     createNewScene();
     EnableButtons(INITIAL_CONFIG);
+
+    ui->speedSlider->setValue(200);
+    ui->mainToolBar->insertWidget( nullptr, ui->speedSlider);
+    ui->mainToolBar->addSeparator();
+    connect(ui->speedSlider, SIGNAL(valueChanged(int)), this, SLOT(speedChanged(int)));
 }
 
 MainWindow::~MainWindow()
@@ -217,6 +223,7 @@ void MainWindow::openTestDataClicked()
     connect(_simEngine, &SimulationEngine::restarted, [this](){
         EnableButtons(SIM_RESTARTED);
     });
+    _simEngine->setCurrentSpeed(ui->speedSlider->value());
 }
 
 void MainWindow::startSimulationClicked()
@@ -288,6 +295,12 @@ void MainWindow::showDashboarMessage(MessageType type, QString message)
         break;
     }
     ui->mDashboard->insertHtml(tr("<p style=\"margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\"><span style=\"color:%1;\">%2: %3</span><br/></p>").arg(color, typeString, message));
+}
+
+void MainWindow::speedChanged(int value)
+{
+    if(_simEngine)
+        _simEngine->setCurrentSpeed(value);
 }
 
 void MainWindow::closeEvent(QCloseEvent *event)

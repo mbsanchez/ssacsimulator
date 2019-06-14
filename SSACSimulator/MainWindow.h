@@ -53,6 +53,7 @@ private slots:
     void pauseSimulationClicked();
     void restartSimulationClicked();
     void showDashboarMessage(MessageType type, QString message);
+    void speedChanged(int value);
 
 protected:
     void closeEvent(QCloseEvent *event) override final;

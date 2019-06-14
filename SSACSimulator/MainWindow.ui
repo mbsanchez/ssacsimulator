@@ -14,7 +14,7 @@
    <string>Self-supervising autonomic cycle simulator</string>
   </property>
   <widget class="QWidget" name="centralWidget">
-   <layout class="QVBoxLayout" name="verticalLayout" stretch="5,0">
+   <layout class="QVBoxLayout" name="verticalLayout" stretch="0,5,0">
     <property name="spacing">
      <number>5</number>
     </property>
@@ -33,6 +33,31 @@
     <property name="bottomMargin">
      <number>5</number>
     </property>
+    <item alignment="Qt::AlignRight">
+     <widget class="QSlider" name="speedSlider">
+      <property name="maximumSize">
+       <size>
+        <width>200</width>
+        <height>16777215</height>
+       </size>
+      </property>
+      <property name="minimum">
+       <number>1</number>
+      </property>
+      <property name="maximum">
+       <number>3000</number>
+      </property>
+      <property name="singleStep">
+       <number>20</number>
+      </property>
+      <property name="pageStep">
+       <number>300</number>
+      </property>
+      <property name="orientation">
+       <enum>Qt::Horizontal</enum>
+      </property>
+     </widget>
+    </item>
     <item>
      <widget class="QGraphicsViewEc" name="graphicsView">
       <property name="renderHints">

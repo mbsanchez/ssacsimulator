@@ -34,7 +34,7 @@ SimulationEngine::SimulationEngine(BusinessProcessModel *processModel, Simulatio
       _lastEvent(-1),
       _processModel(processModel)
 {
-    _timer.setInterval(DEFAULT_DELAY);
+    _timer.setInterval(DEFAULT_TIME_DELAY);
     connect(&_timer, SIGNAL(timeout()), this, SLOT(nextSimulationStep()));
 }
 
@@ -88,12 +88,26 @@ void SimulationEngine::restart()
         emit restarted();
 }
 
-void SimulationEngine::setCurrentSpeed(float currentSpeed)
+void SimulationEngine::setCurrentSpeed(int currentSpeed)
 {
+    bool active = _timer.isActive();
+
+    if(active)
+        _timer.stop();
+
     _currentSpeed = currentSpeed;
+
+    if(_currentSpeed > MAX_SPEED)
+        _currentSpeed = MAX_SPEED;
+
+    if(_currentSpeed < MIN_SPEED)
+        _currentSpeed = MIN_SPEED;
+
+    if(active)
+        _timer.start();
 }
 
-float SimulationEngine::currentSpeed() const
+int SimulationEngine::currentSpeed() const
 {
     return _currentSpeed;
 }
@@ -115,7 +129,7 @@ void SimulationEngine::nextSimulationStep()
         return;
     }
 
-    long dxMillis = static_cast<long>(_timer.interval() * _currentSpeed);
+    long dxMillis = _timer.interval() * _currentSpeed;
 
     // Check if it is time to process the next event.
     bool processNextEvent = false;
