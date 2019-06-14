@@ -14,9 +14,12 @@
    <string>Self-supervising autonomic cycle simulator</string>
   </property>
   <widget class="QWidget" name="centralWidget">
-   <layout class="QVBoxLayout" name="verticalLayout">
+   <layout class="QVBoxLayout" name="verticalLayout" stretch="5,0">
     <property name="spacing">
      <number>5</number>
+    </property>
+    <property name="sizeConstraint">
+     <enum>QLayout::SetDefaultConstraint</enum>
     </property>
     <property name="leftMargin">
      <number>5</number>
@@ -37,6 +40,31 @@
       </property>
       <property name="dragMode">
        <enum>QGraphicsView::ScrollHandDrag</enum>
+      </property>
+     </widget>
+    </item>
+    <item>
+     <widget class="QTextEdit" name="mDashboard">
+      <property name="sizePolicy">
+       <sizepolicy hsizetype="Expanding" vsizetype="Maximum">
+        <horstretch>0</horstretch>
+        <verstretch>0</verstretch>
+       </sizepolicy>
+      </property>
+      <property name="maximumSize">
+       <size>
+        <width>16777215</width>
+        <height>125</height>
+       </size>
+      </property>
+      <property name="documentTitle">
+       <string/>
+      </property>
+      <property name="lineWrapMode">
+       <enum>QTextEdit::NoWrap</enum>
+      </property>
+      <property name="readOnly">
+       <bool>true</bool>
       </property>
      </widget>
     </item>

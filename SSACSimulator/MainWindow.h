@@ -34,6 +34,7 @@ class MainWindow : public QMainWindow
     Q_OBJECT
     
     enum AppAction { INITIAL_CONFIG, MODEL_OPENED, DATA_OPENED, SIM_STARTED, SIM_PAUSED, SIM_STOPPED, SIM_RESTARTED};
+    enum MessageType { INFO, WARNING, ERROR, CRITICAL };
 
 public:
     explicit MainWindow(QWidget *parent = nullptr);
@@ -51,6 +52,7 @@ private slots:
     void stopSimulationClicked();
     void pauseSimulationClicked();
     void restartSimulationClicked();
+    void showDashboarMessage(MessageType type, QString message);
 
 protected:
     void closeEvent(QCloseEvent *event) override final;

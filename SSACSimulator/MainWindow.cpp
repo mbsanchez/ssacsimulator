@@ -75,8 +75,7 @@ void MainWindow::drawGraph(QString filename)
     int errors = currentBpm->Load(filename);
 
     if(errors){
-        QMessageBox::information(this, APP_NAME, "We've found errors loading the process model, check the log file for details");
-
+        showDashboarMessage(ERROR, tr("We've found errors loading the process model, check the log file for details."));
         return;
     }
 
@@ -133,6 +132,7 @@ void MainWindow::drawGraph(QString filename)
     //Fit in view
     ui->graphicsView->items().clear();
     ui->graphicsView->fitInView(_scene->sceneRect(), Qt::KeepAspectRatio);
+    showDashboarMessage(INFO, tr("Process Model %1 loaded without issues.").arg(currentBpm->processName()));
     EnableButtons(MODEL_OPENED);
 }
 
@@ -263,6 +263,31 @@ void MainWindow::restartSimulationClicked()
 
     EnableButtons(SIM_RESTARTED);
     _simEngine->restart();
+}
+
+void MainWindow::showDashboarMessage(MessageType type, QString message)
+{
+    QString typeString;
+    QString color;
+    switch(type){
+    case INFO:
+        typeString = tr("INFO");
+        color = "#00aa00";
+        break;
+    case WARNING:
+        typeString = tr("WARNING");
+        color = "#00aaaa";
+        break;
+    case ERROR:
+        typeString = tr("ERROR");
+        color = "#dd0000";
+        break;
+    case CRITICAL:
+        typeString = tr("CRITICAL");
+        color = "#ff0000";
+        break;
+    }
+    ui->mDashboard->insertHtml(tr("<p style=\"margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\"><span style=\"color:%1;\">%2: %3</span><br/></p>").arg(color, typeString, message));
 }
 
 void MainWindow::closeEvent(QCloseEvent *event)
