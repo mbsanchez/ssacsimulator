@@ -223,7 +223,6 @@ void MainWindow::openTestDataClicked()
 
     //_simData->createTestData1();
 
-
     QString filename =  QFileDialog::getOpenFileName(
               this,
               "Open BPM Test Events",
@@ -239,7 +238,7 @@ void MainWindow::openTestDataClicked()
         settings.setValue("lastFolder", QFileInfo(filename).absolutePath());
 
         if(simData->loadData(filename) > 0){
-            showDashboarMessage(ERROR, tr("Event test data load error founds."));
+            showDashboarMessage(ERROR, tr("Event test data load founds errors, check log file for details."));
             delete simData;
             return;
         }
@@ -270,7 +269,6 @@ void MainWindow::openTestDataClicked()
     });
 
     connect(_simEngine, &SimulationEngine::eventChanged, [this](long event){
-        qInfo() << "Last Event: " << event;
         ui->eventsTracker->setValue(static_cast<int>(1000000*static_cast<double>(event)/_simData->events()));
     });
     _simEngine->setCurrentSpeed(static_cast<uint>(ui->speedSlider->value()));
