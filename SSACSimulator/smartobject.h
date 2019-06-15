@@ -43,8 +43,8 @@ public:
     void paint(QPainter * painter, const QStyleOptionGraphicsItem * option, QWidget * widget = nullptr);
     QRectF boundingRect() const;
     QString objectID() const;
-    void setPathEdge(QGVEdge *pathEdge, qreal animationTimeInMin);
-    void nextAnimationStep(long dxMillis);
+    void setPathEdge(QGVEdge *pathEdge, ulong animationTimeInMin);
+    void nextAnimationStep(ulong dxMillis);
     bool isAnimationFinished();
     QString endActor() const;
     void setEndActor(const QString &value);
@@ -61,9 +61,9 @@ private:
     QString _objectID;
     QString _endActor;
     QGVEdge *_pathEdge;
-    long _currentTime;
+    ulong _currentTime;
     long _currentSegment;
-    long _animationTimeMillis;
+    ulong _animationTimeMillis;
     QVector<SegmentData> _slerpData;
     qreal _totalLenght;
 };

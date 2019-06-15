@@ -16,8 +16,9 @@ You should have received a copy of the GNU Lesser General Public
 License along with this library.
 ***************************************************************/
 #include "simulationevent.h"
+#include <QtDebug>
 
-SimulationEvent::SimulationEvent(QString caseID, QString beginActor, QString endActor, float transitionTime, float startTime, QObject *parent)
+SimulationEvent::SimulationEvent(QString caseID, QString beginActor, QString endActor, double transitionTime, double startTime, QObject *parent)
     : QObject(parent),
       _caseID(caseID),
       _beginActor(beginActor),
@@ -43,18 +44,33 @@ QString SimulationEvent::endActor() const
     return _endActor;
 }
 
-float SimulationEvent::transitionTime() const
+double SimulationEvent::transitionTime() const
 {
     return _transitionTime;
 }
 
-float SimulationEvent::startTime() const
+double SimulationEvent::startTime() const
 {
     return _startTime;
 }
 
+ulong SimulationEvent::transitionTimeInMs() const
+{
+    return static_cast<ulong>(_transitionTime * 60ul * 1000ul);
+}
+
+qulonglong SimulationEvent::startTimeInMs() const
+{
+    return static_cast<qulonglong>(_startTime * 60ull * 1000ull);
+}
+
 SimulationData::SimulationData(QObject *parent) :
-    _inputFile(nullptr)
+    QObject (parent),
+    _inputFile(nullptr),
+    _lastAccessedIndex(-1),
+    _events(0),
+    _minTime(0),
+    _maxTime(0)
 {
 
 }
@@ -68,8 +84,10 @@ SimulationData::~SimulationData()
 
 SimulationEvent *SimulationData::eventAt(long i)
 {
-    if(i < _eventList.size())
+    if(i < _eventList.size()){
+        _lastAccessedIndex = i;
         return _eventList.at(i);
+    }
 
     return nullptr;
 }
@@ -78,6 +96,31 @@ int SimulationData::loadData(QString filename)
 {
     _dataFilename = filename;
 
+    if(!_inputFile)
+        _inputFile = new std::ifstream();
+
+    if(_inputFile->is_open())
+        _inputFile->close();
+
+    clear();
+    _inputFile->open(filename.toLocal8Bit().data());
+
+    if(_inputFile->fail()){
+        qInfo() << QString("Error opening the file %1").arg(filename);
+        return 1;
+    }
+
+    _lastAccessedIndex = -1;
+    if(readHeader()!=0){
+        qInfo() << "Error reading header";
+        return 1;
+    }
+
+    return getNextChunck(DATA_INITIAL_CHUNK_LENGHT);
+}
+
+void SimulationData::createTestData1()
+{
     //_eventList.append(new SimulationEvent("4", "BEGIN", "L0_S0", 0));
     _eventList.append(new SimulationEvent("4", "L0_S0", "L0_S1", 1, 0));
     _eventList.append(new SimulationEvent("4", "L0_S1", "L0_S2", 2, 1));
@@ -186,19 +229,22 @@ int SimulationData::loadData(QString filename)
     _eventList.append(new SimulationEvent("13", "L3_S35", "L3_S36", 2, 122));
     _eventList.append(new SimulationEvent("13", "L3_S36", "L3_S37", 1, 124));
     _eventList.append(new SimulationEvent("13", "L3_S37", "END", 0, 125));
-
-    return 0;
 }
 
 void SimulationData::clear()
 {
     qDeleteAll(_eventList);
     _eventList.clear();
+    _minTime = 0;
+    _maxTime = 0;
+    _events = 0;
 }
 
 void SimulationData::restart()
 {
-    //TODO: reload the data from the beginning
+    //TODO: xxxxxxx, crashed
+    _lastAccessedIndex = -1;
+    //loadData(_dataFilename);
 }
 
 long SimulationData::eventsCount()
@@ -208,5 +254,103 @@ long SimulationData::eventsCount()
 
 int SimulationData::getNextChunck(int chunkLength)
 {
+    if(!_inputFile)
+        return 1;
+
+    char line[1024];
+
+    for (long i=0; i < chunkLength && !_inputFile->eof(); i++) {
+        _inputFile->getline(line, 1024,'\n');
+
+        QStringList row = QString::fromLocal8Bit(line).split(",");
+
+        if(row.isEmpty())
+            continue;
+
+        if(row.size() != 5){
+            qCritical() << QString("row %1, invalid format").arg(QString::number(i));
+            continue;
+        }
+
+        bool durationOk=false, startTimeOk=false;
+        double duration = row[3].trimmed().toDouble(&durationOk);
+        double startTime = row[4].trimmed().toDouble(&startTimeOk);
+
+        if(!durationOk && !startTimeOk){
+            continue;
+        }
+
+        _eventList.append(new SimulationEvent(row[0], row[1], row[2], duration, startTime));
+    }
+
+    qInfo() << "Events data chunk loaded";
     return 0;
+}
+
+int SimulationData::readHeader()
+{
+    char line[1024];
+
+    //Skip the header
+    _inputFile->getline(line, 1024,'\n');
+
+    if(_inputFile->fail()){
+        qCritical() << "Error reading the events data file";
+        return 1;
+    }
+
+    _inputFile->getline(line, 1024,'\n');
+
+    if(_inputFile->fail()){
+        qCritical() << "Error reading the events data file";
+        return 1;
+    }
+
+    QStringList row = QString::fromLocal8Bit(line).split(",");
+    if(row.size() != 5) {
+        qCritical() << "Error events data must contains 5 columns";
+        return 1;
+    }
+
+    bool ok = false;
+
+    _events = row[0].trimmed().toULong(&ok);
+
+    if(!ok || _events <= 0){
+        qCritical() << "Error reading events number, it mus be a number >= 0";
+        return 1;
+    }
+
+    _minTime = row[1].trimmed().toDouble(&ok);
+    if(!ok || _minTime < 0){
+        qCritical() << "Error reading min simulation time, it mus be a number >= 0";
+        return 1;
+    }
+
+    _maxTime = row[2].trimmed().toDouble(&ok);
+    if(!ok || _maxTime <= 0){
+        qCritical() << "Error reading max simulation time, it mus be a number > 0";
+        return 1;
+    }
+
+    qDebug() << QString("events: %1, min time: %2, max time: %3").arg(QString::number(_events),
+                                                                      QString::number(_minTime),
+                                                                      QString::number(_maxTime));
+
+    return 0;
+}
+
+qreal SimulationData::maxTime() const
+{
+    return _maxTime;
+}
+
+qreal SimulationData::minTime() const
+{
+    return _minTime;
+}
+
+ulong SimulationData::events() const
+{
+    return _events;
 }

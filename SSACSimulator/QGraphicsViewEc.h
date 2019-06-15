@@ -28,7 +28,7 @@ class QGraphicsViewEc : public QGraphicsView
 {
     Q_OBJECT
 public:
-    QGraphicsViewEc(QWidget *parent = 0);
+    QGraphicsViewEc(QWidget *parent = nullptr);
 
 protected:
     virtual void wheelEvent(QWheelEvent* event);

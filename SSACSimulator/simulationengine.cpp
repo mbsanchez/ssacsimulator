@@ -30,7 +30,6 @@ SimulationEngine::SimulationEngine(BusinessProcessModel *processModel, Simulatio
       _data(data),
       _currentSpeed(DEFAULT_SPEED),
       _currentTimeMillis(0),
-      _lastEventTimeMillisSinceStart(0),
       _lastEvent(-1),
       _processModel(processModel)
 {
@@ -88,7 +87,7 @@ void SimulationEngine::restart()
         emit restarted();
 }
 
-void SimulationEngine::setCurrentSpeed(int currentSpeed)
+void SimulationEngine::setCurrentSpeed(uint currentSpeed)
 {
     bool active = _timer.isActive();
 
@@ -107,7 +106,7 @@ void SimulationEngine::setCurrentSpeed(int currentSpeed)
         _timer.start();
 }
 
-int SimulationEngine::currentSpeed() const
+uint SimulationEngine::currentSpeed() const
 {
     return _currentSpeed;
 }
@@ -129,15 +128,17 @@ void SimulationEngine::nextSimulationStep()
         return;
     }
 
-    long dxMillis = _timer.interval() * _currentSpeed;
+    ulong dxMillis = static_cast<uint>(_timer.interval()) * _currentSpeed;
+    bool processNextEvent = false;
+    qulonglong eventStartTime = event->startTimeInMs();
+
+    if(_smartObjects.size()==0){
+        _currentTimeMillis = eventStartTime;
+    }
 
     // Check if it is time to process the next event.
-    bool processNextEvent = false;
-    long eventTransitionTime = static_cast<long>(event->startTime() * 60 * 1000);
-    long nextEventStartTime = _lastEventTimeMillisSinceStart + eventTransitionTime;
-
-    if(_currentTimeMillis + dxMillis  >= nextEventStartTime){
-        dxMillis = nextEventStartTime - _currentTimeMillis;
+    if(_currentTimeMillis + dxMillis  >= eventStartTime){
+        dxMillis = static_cast<ulong>(eventStartTime - _currentTimeMillis);
         processNextEvent = true;
     }
 
@@ -146,6 +147,7 @@ void SimulationEngine::nextSimulationStep()
     //Process all the events that start at same time
     while (processNextEvent) {
         _lastEvent++;
+        emit eventChanged(_lastEvent);
         SmartObject *smo = nullptr;
 
         //process new events
@@ -164,7 +166,7 @@ void SimulationEngine::nextSimulationStep()
                 << smo->isVisible();
 
         event = _data->eventAt(1 + _lastEvent);
-        if(event == nullptr || _currentTimeMillis != static_cast<long>(event->startTime() * 60 * 1000)){
+        if(event == nullptr || _currentTimeMillis != event->startTimeInMs()){
             processNextEvent = false;
         }
     }
@@ -216,7 +218,7 @@ void SimulationEngine::updateAnimationEdge(SmartObject *smo, SimulationEvent *ev
         smo->setEndActor("");
     }else {
         QGVEdge *gvEdge = pEdge->gvEdge();
-        smo->setPathEdge(gvEdge, static_cast<qreal>(event->transitionTime()));
+        smo->setPathEdge(gvEdge, event->transitionTimeInMs());
         smo->setEndActor(event->endActor());
     }
 }
@@ -245,7 +247,6 @@ void SimulationEngine::clear()
     }
     _smartObjects.clear();
     _currentTimeMillis = 0;
-    _lastEventTimeMillisSinceStart = 0;
     _lastEvent = -1;
     _data->restart();
 }

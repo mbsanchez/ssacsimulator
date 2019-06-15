@@ -31,9 +31,9 @@ class BusinessProcessModel;
 class SimulationEngine : public QObject
 {
 public:
-    const int DEFAULT_SPEED = 20;       /*1 min is animated in 3 secs*/
-    const int MAX_SPEED = 3000;         /*1 min is animated in 20 ms*/
-    const int MIN_SPEED = 1;            /*1 min is animated in 1 min*/
+    const uint DEFAULT_SPEED = 20;       /*1 min is animated in 3 secs*/
+    const uint MAX_SPEED = 3000;         /*1 min is animated in 20 ms*/
+    const uint MIN_SPEED = 1;            /*1 min is animated in 1 min*/
     const int DEFAULT_TIME_DELAY = 20;  /*each step is done in 20 ms*/
 
 private:
@@ -46,8 +46,8 @@ public:
     void pause();
     void stop();
     void restart();
-    void setCurrentSpeed(int currentSpeed);
-    int currentSpeed() const;
+    void setCurrentSpeed(uint currentSpeed);
+    uint currentSpeed() const;
     bool isRunning();
 
 signals:
@@ -55,6 +55,7 @@ signals:
     void finished();
     void paused();
     void restarted();
+    void eventChanged(long value);
 
 protected slots:
     void nextSimulationStep();
@@ -69,9 +70,8 @@ private:
     QGVScene *_scene;
     SimulationData *_data;
     QTimer _timer;
-    int _currentSpeed;
-    long _currentTimeMillis;
-    long _lastEventTimeMillisSinceStart;
+    uint _currentSpeed;
+    qulonglong _currentTimeMillis;
     long _lastEvent;
     QHash<QString, SmartObject*> _smartObjects;
     BusinessProcessModel *_processModel;

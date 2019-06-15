@@ -30,6 +30,8 @@ License along with this library.
 #include <QtDebug>
 #include <QFileDialog>
 #include <QSlider>
+#include <QSettings>
+#include <QStandardPaths>
 
 MainWindow::MainWindow(QWidget *parent) :
     QMainWindow(parent),
@@ -39,9 +41,12 @@ MainWindow::MainWindow(QWidget *parent) :
     _simEngine(nullptr),
     _simData(nullptr)
 {
+
+    QCoreApplication::setOrganizationName("Personal");
+    QCoreApplication::setApplicationName(APP_NAME);
+
     ui->setupUi(this);
     _simData = new SimulationData();
-    _simData->loadData("");
 
     createNewScene();
     EnableButtons(INITIAL_CONFIG);
@@ -126,7 +131,7 @@ void MainWindow::drawGraph(QString filename)
             if(!edge->show())
                 continue;
 
-            QGVEdge *gvEdge = _scene->addEdge(nodes[edge->begin()], nodes[edge->end()], QString::number((double)edge->time()));
+            QGVEdge *gvEdge = _scene->addEdge(nodes[edge->begin()], nodes[edge->end()], QString::number(static_cast<double>(edge->time())));
             edge->setGvEdge(gvEdge);
             /*_scene->addEdge(node1, node2, "TTL")->setAttribute("color", "red");*/
         }
@@ -177,7 +182,7 @@ void MainWindow::edgeDoubleClick(QGVEdge *edge)
 
     BusinessProcessModel::Edge *tedge = currentBpm->edges()[slabel][tlabel];
 
-    QMessageBox::information(this, tr("Edge %1 Info").arg(tedge->name()), tr("Cases %1, Avg Time %2").arg(QString::number(tedge->cases()), QString::number((double)tedge->time())));
+    QMessageBox::information(this, tr("Edge %1 Info").arg(tedge->name()), tr("Cases %1, Avg Time %2").arg(QString::number(tedge->cases()), QString::number(static_cast<double>(tedge->time()))));
 }
 
 void MainWindow::exitClicked()
@@ -189,27 +194,67 @@ void MainWindow::exitClicked()
 
 void MainWindow::openClicked()
 {
+    QSettings settings;
+    QString lastFolder = settings.value("lastFolder", "").toString();
+
     QString filename =  QFileDialog::getOpenFileName(
               this,
               "Open Business Process Model",
-              QDir::currentPath(),
-              "All files (*.*) ;; BP files (*.p)");
+              lastFolder.isEmpty() ? QStandardPaths::
+                                     standardLocations(QStandardPaths::
+                                                       DocumentsLocation).
+                                     at(0) : lastFolder,
+              "BP files (*.pg);;All files (*.*)");
 
     if( !filename.isNull() )
     {
+        settings.setValue("lastFolder", QFileInfo(filename).absolutePath());
         drawGraph(filename);
     }
 }
 
 void MainWindow::openTestDataClicked()
 {
-    EnableButtons(DATA_OPENED);
-    if(_simEngine){
-        if(_simEngine->isRunning())
-            _simEngine->stop();
+    QSettings settings;
+    QString lastFolder = settings.value("lastFolder", "").toString();
 
+    if(_simEngine && _simEngine->isRunning())
+        _simEngine->pause();
+
+    //_simData->createTestData1();
+
+
+    QString filename =  QFileDialog::getOpenFileName(
+              this,
+              "Open BPM Test Events",
+              lastFolder.isEmpty() ? QStandardPaths::
+                                     standardLocations(QStandardPaths::
+                                                       DocumentsLocation).
+                                     at(0) : lastFolder,
+              "BPM test event files (*.td);;All files (*.*)");
+
+    SimulationData *simData = new SimulationData();
+    if( !filename.isNull() )
+    {
+        settings.setValue("lastFolder", QFileInfo(filename).absolutePath());
+
+        if(simData->loadData(filename) > 0){
+            showDashboarMessage(ERROR, tr("Event test data load error founds."));
+            delete simData;
+            return;
+        }
+    }
+
+    if(_simEngine){
+        _simEngine->stop();
         delete _simEngine;
     }
+
+    if(_simData){
+        delete _simData;
+        _simData = simData;
+    }
+
     _simEngine = new SimulationEngine(currentBpm, _simData, _scene);
     connect(_simEngine, &SimulationEngine::started, [this](){
         EnableButtons(SIM_STARTED);
@@ -223,7 +268,14 @@ void MainWindow::openTestDataClicked()
     connect(_simEngine, &SimulationEngine::restarted, [this](){
         EnableButtons(SIM_RESTARTED);
     });
-    _simEngine->setCurrentSpeed(ui->speedSlider->value());
+
+    connect(_simEngine, &SimulationEngine::eventChanged, [this](long event){
+        qInfo() << "Last Event: " << event;
+        ui->eventsTracker->setValue(static_cast<int>(1000000*static_cast<double>(event)/_simData->events()));
+    });
+    _simEngine->setCurrentSpeed(static_cast<uint>(ui->speedSlider->value()));
+    EnableButtons(DATA_OPENED);
+    showDashboarMessage(INFO, tr("Events test data was loaded correctly."));
 }
 
 void MainWindow::startSimulationClicked()
@@ -300,7 +352,7 @@ void MainWindow::showDashboarMessage(MessageType type, QString message)
 void MainWindow::speedChanged(int value)
 {
     if(_simEngine)
-        _simEngine->setCurrentSpeed(value);
+        _simEngine->setCurrentSpeed(static_cast<uint>(value));
 }
 
 void MainWindow::closeEvent(QCloseEvent *event)

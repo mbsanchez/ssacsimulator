@@ -23,42 +23,55 @@ License along with this library.
 #include <fstream>
 
 class SimulationEvent : public QObject
-{
-    const static long DATA_CHUNK_LENGHT = 1000;
+{  
     Q_OBJECT
 public:
-    explicit SimulationEvent(QString caseID, QString beginActor, QString endActor, float transitionTime, float startTime, QObject *parent = nullptr);
+    explicit SimulationEvent(QString caseID, QString beginActor, QString endActor, double transitionTime, double startTime, QObject *parent = nullptr);
     QString caseID() const;
     QString beginActor() const;
     QString endActor() const;
-    float transitionTime() const;
-    float startTime() const;
+    double transitionTime() const;
+    double startTime() const;
+    ulong transitionTimeInMs() const;
+    qulonglong startTimeInMs() const;
 
 private:
     QString _caseID;
     QString _beginActor;
     QString _endActor;
-    float _transitionTime;
-    float _startTime;
+    double _transitionTime;
+    double _startTime;
 };
 
 class SimulationData : public QObject {
+    const static long DATA_INITIAL_CHUNK_LENGHT = 50000;
+    const static long DATA_SMALL_CHUNK_LENGHT = 5000;
     Q_OBJECT
 public:
     SimulationData(QObject *parent = nullptr);
     ~SimulationData();
     SimulationEvent *eventAt(long i);
     int loadData(QString filename);
+    void createTestData1();
     void clear();
     void restart();
     long eventsCount();
+    ulong events() const;
+    qreal minTime() const;
+    qreal maxTime() const;
+
 private:
     int getNextChunck(int chunkLength);
+    int readHeader();
 
 private:
     std::ifstream *_inputFile;
     QString _dataFilename;
     QVector<SimulationEvent*> _eventList;
+    long _lastAccessedIndex;
+    ulong _events;
+    qreal _minTime;
+    qreal _maxTime;
 };
 
 #endif // SIMULATIONEVENT_H

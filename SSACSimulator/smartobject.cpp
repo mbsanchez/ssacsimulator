@@ -60,12 +60,12 @@ QString SmartObject::objectID() const
     return _objectID;
 }
 
-void SmartObject::setPathEdge(QGVEdge *pathEdge, qreal animationTimeInMin)
+void SmartObject::setPathEdge(QGVEdge *pathEdge, ulong animationTimeInMs)
 {
     _pathEdge = pathEdge;
     _currentSegment = 0;
     _currentTime = 0;
-    _animationTimeMillis = static_cast<long>(animationTimeInMin * 60 * 1000);
+    _animationTimeMillis = animationTimeInMs;
 
     if(_animationTimeMillis <= 0 || _pathEdge == nullptr){
         _animationTimeMillis = 0;
@@ -76,13 +76,13 @@ void SmartObject::setPathEdge(QGVEdge *pathEdge, qreal animationTimeInMin)
     }
 }
 
-void SmartObject::nextAnimationStep(long dxMillis)
+void SmartObject::nextAnimationStep(ulong dxMillis)
 {
     if(_pathEdge == nullptr || _currentTime >= _animationTimeMillis || dxMillis == 0){
         return;
     }
 
-    long x = _currentTime + dxMillis;
+    ulong x = _currentTime + dxMillis;
 
     if(x >= _animationTimeMillis)
         x = _animationTimeMillis;
