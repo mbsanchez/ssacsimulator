@@ -78,8 +78,11 @@ SimulationData::SimulationData(QObject *parent) :
 SimulationData::~SimulationData()
 {
     clear();
-    if(_inputFile)
+    if(_inputFile){
+        if(_inputFile->is_open())
+            _inputFile->close();
         delete _inputFile;
+    }
 }
 
 SimulationEvent *SimulationData::eventAt(long i)
