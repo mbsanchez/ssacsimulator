@@ -26,7 +26,8 @@ SmartObject::SmartObject(QString objectID, QGraphicsItem *parent) : QGraphicsIte
     _currentTime(0),
     _currentSegment(0),
     _animationTimeMillis(0),
-    _totalLenght(0)
+    _totalLenght(0),
+    _timeCount(0)
 {
     setFlag(QGraphicsItem::ItemIsSelectable, false);
 }
@@ -66,6 +67,7 @@ void SmartObject::setPathEdge(QGVEdge *pathEdge, ulong animationTimeInMs)
     _currentSegment = 0;
     _currentTime = 0;
     _animationTimeMillis = animationTimeInMs;
+    _timeCount += animationTimeInMs / 60000.0;
 
     if(_animationTimeMillis <= 0 || _pathEdge == nullptr){
         _animationTimeMillis = 0;
@@ -182,6 +184,11 @@ QPointF SmartObject::centerPoint()
     QRectF rect = boundingRect();
 
     return QPointF(rect.width() / 2, rect.height() / 2);
+}
+
+qreal SmartObject::timeCount() const
+{
+    return _timeCount;
 }
 
 QString SmartObject::endActor() const

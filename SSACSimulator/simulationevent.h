@@ -26,7 +26,7 @@ class SimulationEvent : public QObject
 {  
     Q_OBJECT
 public:
-    explicit SimulationEvent(QString caseID, QString beginActor, QString endActor, double transitionTime, double startTime, QObject *parent = nullptr);
+    explicit SimulationEvent(QString caseID, QString beginActor, QString endActor, double transitionTime, double startTime, int fails = -1, QObject *parent = nullptr);
     QString caseID() const;
     QString beginActor() const;
     QString endActor() const;
@@ -34,6 +34,7 @@ public:
     double startTime() const;
     ulong transitionTimeInMs() const;
     qulonglong startTimeInMs() const;
+    int fails() const;
 
 private:
     QString _caseID;
@@ -41,11 +42,12 @@ private:
     QString _endActor;
     double _transitionTime;
     double _startTime;
+    int _fails;
 };
 
 class SimulationData : public QObject {
-    const static long DATA_INITIAL_CHUNK_LENGHT = 50000;
-    const static long DATA_SMALL_CHUNK_LENGHT = 5000;
+    const static long DATA_INITIAL_CHUNK_LENGHT = 100000;
+    const static long DATA_SMALL_CHUNK_LENGHT = 10000;
     Q_OBJECT
 public:
     SimulationData(QObject *parent = nullptr);

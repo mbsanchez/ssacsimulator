@@ -18,13 +18,14 @@ License along with this library.
 #include "simulationevent.h"
 #include <QtDebug>
 
-SimulationEvent::SimulationEvent(QString caseID, QString beginActor, QString endActor, double transitionTime, double startTime, QObject *parent)
+SimulationEvent::SimulationEvent(QString caseID, QString beginActor, QString endActor, double transitionTime, double startTime, int fails, QObject *parent)
     : QObject(parent),
       _caseID(caseID),
       _beginActor(beginActor),
       _endActor(endActor),
       _transitionTime(transitionTime),
-      _startTime(startTime)
+      _startTime(startTime),
+      _fails(fails)
 {
 
 }
@@ -62,6 +63,11 @@ ulong SimulationEvent::transitionTimeInMs() const
 qulonglong SimulationEvent::startTimeInMs() const
 {
     return static_cast<qulonglong>(_startTime * 60ull * 1000ull);
+}
+
+int SimulationEvent::fails() const
+{
+    return _fails;
 }
 
 SimulationData::SimulationData(QObject *parent) :
@@ -270,7 +276,7 @@ int SimulationData::getNextChunck(int chunkLength)
         if(row.isEmpty())
             continue;
 
-        if(row.size() != 5){
+        if(row.size() < 5 || row.size() > 6){
             qCritical() << QString("row %1, invalid format").arg(QString::number(i));
             continue;
         }
@@ -278,12 +284,14 @@ int SimulationData::getNextChunck(int chunkLength)
         bool durationOk=false, startTimeOk=false;
         double duration = row[3].trimmed().toDouble(&durationOk);
         double startTime = row[4].trimmed().toDouble(&startTimeOk);
+        int fails = row.size() < 6 ? -1 : row[5].trimmed().toInt();
 
         if(!durationOk && !startTimeOk){
             continue;
         }
 
-        _eventList.append(new SimulationEvent(row[0], row[1], row[2], duration, startTime));
+        _eventList.append(new SimulationEvent(row[0].trimmed(), row[1].trimmed(),
+                row[2].trimmed(), duration, startTime, fails));
     }
 
     qInfo() << "Events data chunk loaded";
@@ -310,8 +318,8 @@ int SimulationData::readHeader()
     }
 
     QStringList row = QString::fromLocal8Bit(line).split(",");
-    if(row.size() != 5) {
-        qCritical() << "Error events data must contains 5 columns";
+    if(row.size() < 5 || row.size() > 6) {
+        qCritical() << "Error events data must contains 5 or 6 columns";
         return 1;
     }
 

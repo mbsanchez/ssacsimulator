@@ -21,20 +21,22 @@ License along with this library.
 #include <QObject>
 #include <QTimer>
 #include <QHash>
+#include "businessprocess.h"
 
 class QGVScene;
 class SimulationData;
 class SimulationEvent;
 class SmartObject;
-class BusinessProcessModel;
 
 class SimulationEngine : public QObject
 {
 public:
-    const uint DEFAULT_SPEED = 20;       /*1 min is animated in 3 secs*/
-    const uint MAX_SPEED = 3000;         /*1 min is animated in 20 ms*/
+    const uint DEFAULT_SPEED = 150;      /*1 min is animated in 3 secs*/
+    const uint MAX_SPEED = 15000;        /*1 min is animated in 20 ms*/
     const uint MIN_SPEED = 1;            /*1 min is animated in 1 min*/
-    const int DEFAULT_TIME_DELAY = 20;  /*each step is done in 20 ms*/
+    const int DEFAULT_TIME_DELAY = 20;   /*each step is done in 20 ms*/
+
+    enum FailType {PREDICTED_FAILURE, STATION_FAILURE, GLOBAL_FAILURE};
 
 private:
     Q_OBJECT
@@ -56,6 +58,7 @@ signals:
     void paused();
     void restarted();
     void eventChanged(long value);
+    void reconfigureIsNeeded(QString msg, FailType type);
 
 protected slots:
     void nextSimulationStep();
@@ -65,6 +68,11 @@ protected slots:
     void clear();
     bool simulationParamsAreValid();
     bool actorIsDone(SmartObject *obj);
+    void predictFailure(SmartObject *smo, SimulationEvent *event);
+    void checkStationPerformance(BusinessProcessModel::Edge *pEdge);
+    void checkStationFailures();
+    void checkGlobalPerformance(SmartObject *smo);
+    void emitReconfiguration(QString msg, FailType type);
 
 private:
     QGVScene *_scene;
@@ -75,6 +83,7 @@ private:
     long _lastEvent;
     QHash<QString, SmartObject*> _smartObjects;
     BusinessProcessModel *_processModel;
+    int _fails;
 };
 
 #endif // SIMULATIONENGINE_H

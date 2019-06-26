@@ -48,6 +48,7 @@ public:
     bool isAnimationFinished();
     QString endActor() const;
     void setEndActor(const QString &value);
+    qreal timeCount() const;
 
 private:
     void finished();
@@ -66,6 +67,7 @@ private:
     ulong _animationTimeMillis;
     QVector<SegmentData> _slerpData;
     qreal _totalLenght;
+    qreal _timeCount;
 };
 
 #endif // SMARTOBJECT_H

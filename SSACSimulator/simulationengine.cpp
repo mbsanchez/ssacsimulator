@@ -23,6 +23,7 @@ License along with this library.
 #include "simulationevent.h"
 #include "smartobject.h"
 #include "businessprocess.h"
+#include <QDateTime>
 
 SimulationEngine::SimulationEngine(BusinessProcessModel *processModel, SimulationData *data, QGVScene *scene, QObject *parent)
     : QObject(parent),
@@ -31,10 +32,12 @@ SimulationEngine::SimulationEngine(BusinessProcessModel *processModel, Simulatio
       _currentSpeed(DEFAULT_SPEED),
       _currentTimeMillis(0),
       _lastEvent(-1),
-      _processModel(processModel)
+      _processModel(processModel),
+      _fails(0)
 {
     _timer.setInterval(DEFAULT_TIME_DELAY);
     connect(&_timer, SIGNAL(timeout()), this, SLOT(nextSimulationStep()));
+    _processModel->resetFailingActors();
 }
 
 SimulationEngine::~SimulationEngine()
@@ -168,6 +171,7 @@ void SimulationEngine::nextSimulationStep()
         event = _data->eventAt(1 + _lastEvent);
         if(event == nullptr || _currentTimeMillis != event->startTimeInMs()){
             processNextEvent = false;
+            checkStationFailures();
         }
     }
 
@@ -194,6 +198,8 @@ SmartObject *SimulationEngine::enterSmartObject(SimulationEvent *event)
     smo->hide();
     _scene->addItem(smo);
     _smartObjects.insert(event->caseID(), smo);
+
+    predictFailure(smo, event);
     updateAnimationEdge(smo, event);
 
     return smo;
@@ -214,13 +220,16 @@ void SimulationEngine::updateAnimationEdge(SmartObject *smo, SimulationEvent *ev
     }
 
     if(pEdge == nullptr || pEdge->show() == false || pEdge->gvEdge() == nullptr){
-        smo->setPathEdge(nullptr, 0);
+        smo->setPathEdge(nullptr, event->transitionTimeInMs());
         smo->setEndActor("");
     }else {
         QGVEdge *gvEdge = pEdge->gvEdge();
         smo->setPathEdge(gvEdge, event->transitionTimeInMs());
         smo->setEndActor(event->endActor());
     }
+    if(pEdge)
+        pEdge->addEventTime(event->transitionTime());
+    checkStationPerformance(pEdge);
 }
 
 void SimulationEngine::leaveSmartObject(SmartObject *smo)
@@ -228,6 +237,8 @@ void SimulationEngine::leaveSmartObject(SmartObject *smo)
     if(smo == nullptr)
         return;
 
+    _processModel->addEventTime(smo->timeCount());
+    checkGlobalPerformance(smo);
     qDebug() << QString("The piece %1 has been produced, leaving the system").arg(smo->objectID());
 
     if(_scene != nullptr)
@@ -247,6 +258,7 @@ void SimulationEngine::clear()
     }
     _smartObjects.clear();
     _currentTimeMillis = 0;
+    _fails = 0;
     _lastEvent = -1;
     _data->restart();
 }
@@ -263,4 +275,59 @@ bool SimulationEngine::actorIsDone(SmartObject *obj)
     }
 
     return false;
+}
+
+void SimulationEngine::predictFailure(SmartObject *smo, SimulationEvent *event)
+{
+    if(event->fails()==1){
+        emitReconfiguration(tr("The Supervisor Autonomic Cycle predicts that piece id %2 is going to fail, "
+                               "launching the autonomous cycle for reconfiguration.").
+                            arg(smo->objectID()), PREDICTED_FAILURE);
+        return;
+    }
+}
+
+void SimulationEngine::checkStationPerformance(BusinessProcessModel::Edge *pEdge)
+{
+    if(pEdge == nullptr)
+        return;
+
+    if(pEdge->getTimeCountMean() > static_cast<double>(pEdge->time() * 1.3f)){
+        pEdge->resetTimeCount();
+        if(_processModel->actors().contains(pEdge->begin()))
+            _processModel->actors()[pEdge->begin()]->setFailure(true);
+    }
+}
+
+void SimulationEngine::checkStationFailures()
+{
+    if(_processModel->countFailingActors() > _processModel->actors().size()*0.1){//10%
+        emitReconfiguration(tr("Stations (%1) are not working properly, "
+                               "launching the autonomous cycle for reconfiguration.").
+                            arg(_processModel->getFailingActorsAsString()), STATION_FAILURE);
+    }
+    _processModel->resetFailingActors();
+}
+
+void SimulationEngine::checkGlobalPerformance(SmartObject *smo)
+{
+    if(smo == nullptr)
+        return;
+
+    /*qDebug() << "Global time count mean: " << _processModel->getTimeCountMean()
+             << "Throught out time: " << _processModel->thoughoutTime()
+             << "timeCount: " << _processModel->getTimeCount()
+             << "Smo timeCount: " << smo->timeCount()
+             << "Total objects: " << _processModel->getObjectsCount();*/
+    if(_processModel->getTimeCountMean() > static_cast<double>(_processModel->thoughoutTime() * 1.1f)){
+        _processModel->resetTimeCount();
+        emitReconfiguration("Detected global production delay, "
+                            "launching the autonomous cycle for reconfiguration.", GLOBAL_FAILURE);
+    }
+}
+
+void SimulationEngine::emitReconfiguration(QString msg, FailType type)
+{
+    QString strDate = QDateTime::currentDateTime().addYears(-2).addSecs(_currentTimeMillis / 1000).toUTC().toString("yyyy-MM-dd hh:mm:ss");
+    emit reconfigureIsNeeded(QString("%1 %2").arg(strDate, msg), type);
 }

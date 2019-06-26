@@ -50,6 +50,8 @@ int BusinessProcessModel::Load(QString filename)
     m_processName = "Unknown Process";
     m_thoughoutTime = 0;
     m_totalCases = 0;
+    m_timeCount = 0;
+    m_objectsCount = 0;
     m_actors.clear();
     m_edges.clear();
 
@@ -255,6 +257,61 @@ QStringList BusinessProcessModel::endActors() const
     return m_endActors;
 }
 
+int BusinessProcessModel::countFailingActors() const
+{
+    int count = 0;
+
+    for(Actor *actor : m_actors)
+        if(actor->isFailing())
+            count++;
+
+    return count;
+}
+
+QString BusinessProcessModel::getFailingActorsAsString() const
+{
+    QString actors = "";
+    for(Actor *actor : m_actors)
+        if(actor->isFailing())
+            actors += (actors.isEmpty() ? "" : ", ") + actor->name();
+
+    return actors;
+}
+
+void BusinessProcessModel::resetFailingActors()
+{
+    for(Actor *actor : m_actors)
+        if(actor->isFailing())
+            actor->setFailure(false);
+}
+
+void BusinessProcessModel::addEventTime(double timeInMin)
+{
+    m_objectsCount++;
+    m_timeCount += timeInMin;
+}
+
+void BusinessProcessModel::resetTimeCount()
+{
+    m_objectsCount = 0;
+    m_timeCount = 0;
+}
+
+double BusinessProcessModel::getTimeCountMean() const
+{
+    return m_timeCount / m_objectsCount;
+}
+
+double BusinessProcessModel::getTimeCount() const
+{
+    return m_timeCount;
+}
+
+ulong BusinessProcessModel::getObjectsCount() const
+{
+    return m_objectsCount;
+}
+
 qulonglong BusinessProcessModel::convertToULongLong(QString number)
 {
     int index = number.indexOf(".");
@@ -274,6 +331,8 @@ BusinessProcessModel::Edge::Edge(QString begin, QString end, float time, qulongl
     m_cases = cases;
     m_show = show;
     m_gvEdge = nullptr;
+    m_eventsCount = 0;
+    m_timeCount = 0;
 }
 
 QString BusinessProcessModel::Edge::name() const
@@ -316,12 +375,40 @@ void BusinessProcessModel::Edge::setGvEdge(QGVEdge *gvEdge)
     m_gvEdge = gvEdge;
 }
 
+void BusinessProcessModel::Edge::addEventTime(double timeInMin)
+{
+    m_eventsCount++;
+    m_timeCount += timeInMin;
+}
+
+void BusinessProcessModel::Edge::resetTimeCount()
+{
+    m_eventsCount = 0;
+    m_timeCount = 0;
+}
+
+double BusinessProcessModel::Edge::getTimeCountMean()
+{
+    return m_timeCount / m_eventsCount;
+}
+
+double BusinessProcessModel::Edge::getTimeCount()
+{
+    return m_timeCount;
+}
+
+ulong BusinessProcessModel::Edge::getEventsCount()
+{
+    return m_eventsCount;
+}
+
 BusinessProcessModel::Actor::Actor(const QString &name, BusinessProcessModel::NodeType type)
 {
     m_name = name;
     m_type = type;
     m_cases = 0;
     m_gvNode = nullptr;
+    m_failure = false;
 }
 
 QString BusinessProcessModel::Actor::name() const
@@ -352,4 +439,14 @@ QGVNode *BusinessProcessModel::Actor::gvNode() const
 void BusinessProcessModel::Actor::setGvNode(QGVNode *gvNode)
 {
     m_gvNode = gvNode;
+}
+
+bool BusinessProcessModel::Actor::isFailing() const
+{
+    return m_failure;
+}
+
+void BusinessProcessModel::Actor::setFailure(bool failure)
+{
+    m_failure = failure;
 }

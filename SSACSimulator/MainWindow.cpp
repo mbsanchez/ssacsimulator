@@ -257,19 +257,39 @@ void MainWindow::openTestDataClicked()
     _simEngine = new SimulationEngine(currentBpm, _simData, _scene);
     connect(_simEngine, &SimulationEngine::started, [this](){
         EnableButtons(SIM_STARTED);
+         showDashboarMessage(INFO, "Simulation started");
     });
     connect(_simEngine, &SimulationEngine::finished, [this](){
         EnableButtons(SIM_STOPPED);
+        showDashboarMessage(INFO, "Simulation finished");
     });
     connect(_simEngine, &SimulationEngine::paused, [this](){
         EnableButtons(SIM_PAUSED);
+        showDashboarMessage(INFO, "Simulation paused");
     });
     connect(_simEngine, &SimulationEngine::restarted, [this](){
         EnableButtons(SIM_RESTARTED);
+        showDashboarMessage(INFO, "Simulation re-started");
     });
 
     connect(_simEngine, &SimulationEngine::eventChanged, [this](long event){
-        ui->eventsTracker->setValue(static_cast<int>(1000000*static_cast<double>(event)/_simData->events()));
+        ui->eventsTracker->setValue(static_cast<int>(10000000*static_cast<double>(event)/_simData->events()));
+    });
+
+    connect(_simEngine, &SimulationEngine::reconfigureIsNeeded, [this](QString msg, SimulationEngine::FailType type){
+        MessageType msgType;
+        switch(type){
+        case SimulationEngine::PREDICTED_FAILURE:
+            msgType = PREDICTED;
+            break;
+        case SimulationEngine::STATION_FAILURE:
+            msgType = STATION;
+            break;
+        case SimulationEngine::GLOBAL_FAILURE:
+            msgType = GLOBAL;
+            break;
+        }
+        showDashboarMessage(msgType, msg);
     });
     _simEngine->setCurrentSpeed(static_cast<uint>(ui->speedSlider->value()));
     EnableButtons(DATA_OPENED);
@@ -333,7 +353,7 @@ void MainWindow::showDashboarMessage(MessageType type, QString message)
         break;
     case WARNING:
         typeString = tr("WARNING");
-        color = "#00aaaa";
+        color = "#c7c000";
         break;
     case ERROR:
         typeString = tr("ERROR");
@@ -343,8 +363,21 @@ void MainWindow::showDashboarMessage(MessageType type, QString message)
         typeString = tr("CRITICAL");
         color = "#ff0000";
         break;
+    case PREDICTED:
+        typeString = tr("PR_MSG");
+        color = "#da9100";
+        break;
+    case STATION:
+        typeString = tr("PR_MSG");
+        color = "#e79a73";
+        break;
+    case GLOBAL:
+        typeString = tr("PR_MSG");
+        color = "#8b8bd1";
+        break;
     }
     ui->mDashboard->insertHtml(tr("<p style=\"margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\"><span style=\"color:%1;\">%2: %3</span><br/></p>").arg(color, typeString, message));
+    ui->mDashboard->ensureCursorVisible();
 }
 
 void MainWindow::speedChanged(int value)
