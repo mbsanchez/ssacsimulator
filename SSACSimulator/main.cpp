@@ -28,6 +28,7 @@ int main(int argc, char *argv[])
 {
     // Install the message handler for logging
     qInstallMessageHandler(logMessageHandler);
+    QApplication::setAttribute(Qt::AA_EnableHighDpiScaling);
 
     QApplication a(argc, argv);
     MainWindow w;

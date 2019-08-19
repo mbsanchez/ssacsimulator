@@ -41,7 +41,6 @@ MainWindow::MainWindow(QWidget *parent) :
     _simEngine(nullptr),
     _simData(nullptr)
 {
-
     QCoreApplication::setOrganizationName("Personal");
     QCoreApplication::setApplicationName(APP_NAME);
 
