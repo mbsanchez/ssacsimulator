@@ -1,8 +1,8 @@
 {
-  "runs": 968,
+  "runs": 1312,
   "workers": 7,
   "quick": false,
-  "seconds": 57,
+  "seconds": 82,
   "central": {
     "factor": 3.0,
     "repair_min": 60.0,

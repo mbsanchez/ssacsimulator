@@ -330,3 +330,17 @@ def test_estimate_service_times_ignores_storage_and_zeros(model):
     from ssac.intervention import estimate_service_times
     events = [ev("1", "B1", "C", d) for d in (0.0, 4.0, 6.0, 8.0, 5000.0)] + [ev("2", "A", "B1", 2.0)]
     assert estimate_service_times(model, events) == {"B1": 6.0, "A": 2.0}
+
+
+def test_twin_only_control_ignores_stations_without_twin(model, twins):
+    from ssac.planning import TwinOnlyRulePlanner
+    st = InterventionState(model, service_times=TAU)
+    acts = TwinOnlyRulePlanner(repair_min=30).plan(ctx(model, twins, st, 0.0, ["A", "B1"]))
+    assert acts == [Reroute("B1", "B2", 1.0), Maintenance("B1", 30)]
+
+
+def test_twin_only_control_skips_when_twin_is_busy(model, twins):
+    from ssac.planning import TwinOnlyRulePlanner
+    st = InterventionState(model, service_times=TAU)
+    st.apply(Maintenance("B2", 60.0), 0.0)
+    assert TwinOnlyRulePlanner().plan(ctx(model, twins, st, 10.0, ["B1"])) == []

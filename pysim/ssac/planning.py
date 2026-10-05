@@ -234,3 +234,33 @@ class AdaptiveRulePlanner:
                 actions += respond(station, ctx, claimed, self.repair_min)
                 self._last_acted[station] = t
         return actions
+
+
+@dataclass
+class TwinOnlyRulePlanner:
+    """Control for the LLM planner — not a proposed method.
+
+    Acts on every flagged station that has a free twin (reroute + repair) and
+    ignores stations without one. This is the structural heuristic the C1 LLM
+    planner was observed to follow. If an LLM planner does no better than
+    this, its gain cannot be attributed to triage or reasoning.
+    """
+    repair_min: float = 60.0
+    cooldown_min: float = 240.0
+    react_to: frozenset[str] = frozenset({"STATION_FAILURE", "STATION_DEGRADED"})
+    name: str = "rules_twin"
+    _last_acted: dict[str, float] = field(default_factory=dict)
+
+    def plan(self, ctx: PlanningContext) -> list[Action]:
+        if ctx.detection.type.value not in self.react_to:
+            return []
+        actions: list[Action] = []
+        claimed: set[str] = set()
+        for station in ctx.detection.stations:
+            if not ctx.twins.get(station) or not _eligible(station, ctx, self._last_acted, self.cooldown_min):
+                continue
+            acts = respond(station, ctx, claimed, self.repair_min)
+            if len(acts) == 2:          # a free twin was found
+                actions += acts
+                self._last_acted[station] = ctx.t_min
+        return actions

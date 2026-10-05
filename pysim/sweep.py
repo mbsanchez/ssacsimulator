@@ -33,7 +33,8 @@ from ssac import BusinessProcessModel, SimulationData, SimulationEngine
 from ssac.calibration import alarm_rates
 from ssac.intervention import EffectModel, Fault
 from ssac.metrics import outcome
-from ssac.planning import AdaptiveRulePlanner, CalibratedRulePlanner, NoOpPlanner, RuleBasedPlanner
+from ssac.planning import (AdaptiveRulePlanner, CalibratedRulePlanner, NoOpPlanner, RuleBasedPlanner,
+                           TwinOnlyRulePlanner)
 from ssac.topology import find_twins
 
 ROOT = Path(__file__).resolve().parent.parent / "DataSets I4.0"
@@ -112,6 +113,8 @@ def _planner(name: str, trace: str, cfg: Config):
         return CalibratedRulePlanner(_W["rates"][trace], repair_min=cfg.repair_min)
     if name == "rules_adapt":
         return AdaptiveRulePlanner(repair_min=cfg.repair_min)
+    if name == "rules_twin":
+        return TwinOnlyRulePlanner(repair_min=cfg.repair_min)
     raise ValueError(name)
 
 
@@ -163,9 +166,9 @@ def _rates(calib_trace: str) -> dict[str, float]:
 
 def build_tasks(traces, stations) -> list[Task]:
     tasks: list[Task] = []
-    planners = ["noop", "rules_naive", "rules_cal", "rules_adapt"]
+    planners = ["noop", "rules_naive", "rules_cal", "rules_adapt", "rules_twin"]
     for trace in traces:
-        for p in ["rules_naive", "rules_cal", "rules_adapt"]:
+        for p in ["rules_naive", "rules_cal", "rules_adapt", "rules_twin"]:
             tasks.append(Task("faultfree", "", trace, "", "", p, CENTRAL))
             for param in ("repair_min", "alpha", "mode"):
                 for v in OAT[param]:
@@ -180,8 +183,8 @@ def build_tasks(traces, stations) -> list[Task]:
                 for v in values:
                     cfg = replace(CENTRAL, **{param: v})
                     # noop does not depend on planner-side parameters; only on the fault
-                    planners_here = ["noop", "rules_cal", "rules_adapt"] if param == "factor" \
-                        else ["rules_cal", "rules_adapt"]
+                    planners_here = ["noop", "rules_cal", "rules_adapt", "rules_twin"] if param == "factor" \
+                        else ["rules_cal", "rules_adapt", "rules_twin"]
                     for p in planners_here:
                         tasks.append(Task("oat", f"{param}={v:g}" if isinstance(v, float) else f"{param}={v}",
                                           trace, station, "step", p, cfg))
@@ -230,7 +233,7 @@ def pooled(sel: list[dict]) -> float:
 
 def summarize(rows: list[dict], twins: set[str]) -> str:
     out = []
-    planners = ["rules_naive", "rules_cal", "rules_adapt"]
+    planners = ["rules_naive", "rules_cal", "rules_adapt", "rules_twin"]
 
     def cell(sel):
         wins = sum(1 for r in sel if (r["net_benefit_min"] or 0) > 0)
@@ -267,7 +270,7 @@ def summarize(rows: list[dict], twins: set[str]) -> str:
 
     out.append("\n## Sensibilidad uno-a-uno — recuperación agregada\n")
     out.append("Fallo escalón. Cada fila cambia un único parámetro respecto al punto central.\n")
-    pl = ["rules_cal", "rules_adapt"]
+    pl = ["rules_cal", "rules_adapt", "rules_twin"]
     out.append("| Variación | " + " | ".join(pl) + " |")
     out.append("|---|" + "---|" * len(pl))
     central_step = [r for r in central if r["shape"] == "step"]
