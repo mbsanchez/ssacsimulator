@@ -61,35 +61,51 @@ def ctx(model, st, t, stations):
     return PlanningContext(t, det, model, find_twins(model), st)
 
 
-def test_schema_restricts_stations_to_eligible():
+def reply(**stations):
+    """{"A": ("degraded", "maintain"), ...} -> model output in the v2 format."""
+    return {"stations": {k: {"verdict": v, "action": a} for k, (v, a) in stations.items()}, "reason": "r"}
+
+
+def test_schema_requires_a_verdict_for_every_eligible_station():
     s = response_schema(["A", "B1"])
-    assert s["properties"]["act"]["items"]["properties"]["station"]["enum"] == ["A", "B1"]
+    st = s["properties"]["stations"]
+    assert set(st["properties"]) == {"A", "B1"}
+    assert st["required"] == ["A", "B1"]
+    item = st["properties"]["A"]["properties"]
+    assert "degraded" in item["verdict"]["enum"] and "none" in item["action"]["enum"]
 
 
 def test_maintain_maps_to_maintenance(model):
-    fake = FakeModel({"act": [{"station": "A", "action": "maintain"}], "reason": "x"})
-    p = LLMPlanner(fake, repair_min=45)
+    p = LLMPlanner(FakeModel(reply(A=("degraded", "maintain"))), repair_min=45)
     assert p.plan(ctx(model, InterventionState(model), 0.0, ["A"])) == [Maintenance("A", 45)]
     assert p.calls[0].acted_on == ["A"] and p.calls[0].problems == []
+    assert p.calls[0].verdicts == {"A": "degraded"}
 
 
 def test_reroute_uses_the_free_twin_chosen_by_code(model):
-    fake = FakeModel({"act": [{"station": "B1", "action": "reroute_and_maintain"}], "reason": "x"})
+    fake = FakeModel(reply(B1=("degraded", "reroute_and_maintain")))
     acts = LLMPlanner(fake).plan(ctx(model, InterventionState(model), 0.0, ["B1"]))
     assert acts == [Reroute("B1", "B2", 1.0), Maintenance("B1", 60.0)]
 
 
 def test_reroute_without_twin_is_downgraded_and_recorded(model):
-    fake = FakeModel({"act": [{"station": "A", "action": "reroute_and_maintain"}], "reason": "x"})
-    p = LLMPlanner(fake)
+    p = LLMPlanner(FakeModel(reply(A=("degraded", "reroute_and_maintain"))))
     assert p.plan(ctx(model, InterventionState(model), 0.0, ["A"])) == [Maintenance("A", 60.0)]
     assert any("downgraded" in x for x in p.calls[0].problems)
 
 
-def test_empty_act_means_no_action(model):
-    p = LLMPlanner(FakeModel({"act": [], "reason": "noise"}))
+@pytest.mark.parametrize("verdict", ["normal", "self_inflicted", "insufficient_evidence"])
+def test_action_inconsistent_with_verdict_is_dropped(model, verdict):
+    p = LLMPlanner(FakeModel(reply(A=(verdict, "maintain"))))
+    assert p.plan(ctx(model, InterventionState(model), 0.0, ["A"])) == []
+    assert any("dropped" in x for x in p.calls[0].problems)
+    assert p.calls[0].acted_on == []
+
+
+def test_none_action_means_no_action(model):
+    p = LLMPlanner(FakeModel(reply(A=("normal", "none"), B1=("degraded", "none"))))
     assert p.plan(ctx(model, InterventionState(model), 0.0, ["A", "B1"])) == []
-    assert p.calls[0].reason == "noise"
+    assert p.calls[0].problems == []
 
 
 def test_invalid_json_is_recorded_not_swallowed(model):
@@ -98,18 +114,16 @@ def test_invalid_json_is_recorded_not_swallowed(model):
     assert p.calls[0].problems == ["invalid JSON"]
 
 
-def test_ineligible_and_duplicate_stations_are_rejected(model):
-    fake = FakeModel({"act": [{"station": "C", "action": "maintain"},
-                              {"station": "A", "action": "maintain"},
-                              {"station": "A", "action": "maintain"}], "reason": "x"})
-    p = LLMPlanner(fake)
-    assert p.plan(ctx(model, InterventionState(model), 0.0, ["A"])) == [Maintenance("A", 60.0)]
+def test_ineligible_and_missing_stations_are_reported(model):
+    p = LLMPlanner(FakeModel(reply(C=("degraded", "maintain"), A=("degraded", "maintain"))))
+    assert p.plan(ctx(model, InterventionState(model), 0.0, ["A", "B1"])) == [Maintenance("A", 60.0)]
     probs = p.calls[0].problems
-    assert any("not eligible" in x for x in probs) and any("duplicate" in x for x in probs)
+    assert any("not eligible" in x for x in probs)
+    assert any("no verdict for B1" in x for x in probs)
 
 
 def test_no_call_when_nothing_is_eligible(model):
-    fake = FakeModel({"act": [], "reason": ""})
+    fake = FakeModel(reply())
     st = InterventionState(model)
     st.apply(Maintenance("A", 60.0), 0.0)
     assert LLMPlanner(fake).plan(ctx(model, st, 10.0, ["A", "BEGIN"])) == []
@@ -117,16 +131,15 @@ def test_no_call_when_nothing_is_eligible(model):
 
 
 def test_cooldown_applies_after_acting(model):
-    fake = FakeModel({"act": [{"station": "A", "action": "maintain"}], "reason": "x"})
+    fake = FakeModel(reply(A=("degraded", "maintain")))
     p = LLMPlanner(fake, cooldown_min=240)
-    st = InterventionState(model)
-    p.plan(ctx(model, st, 0.0, ["A"]))
+    p.plan(ctx(model, InterventionState(model), 0.0, ["A"]))
     p.plan(ctx(model, InterventionState(model), 100.0, ["A"]))
     assert len(fake.seen) == 1
 
 
 def test_prompt_describes_twins_and_state(model):
-    fake = FakeModel({"act": [], "reason": ""})
+    fake = FakeModel(reply())
     st = InterventionState(model)
     st.apply(Maintenance("C", 60.0), 0.0)
     LLMPlanner(fake).plan(ctx(model, st, 5.0, ["A", "B1"]))
@@ -191,32 +204,54 @@ def test_memory_counts_alarms_in_windows():
     assert "BEGIN" not in m.alarm_times
 
 
-def test_c2_prompt_carries_retrieved_knowledge(model):
+def test_c2_says_history_is_too_short_early_on(model):
     from ssac.rag_planner import RAGPlanner
-    fake = FakeModel({"act": [], "reason": ""})
-    p = RAGPlanner(fake, baseline_per_min={"A": 0.5 / 60})
+    fake = FakeModel(reply())
+    p = RAGPlanner(fake, baseline_per_min={"A": 0.5 / 60}, min_history_h=8)
     st = InterventionState(model)
     for t in (0.0, 30.0, 60.0):
         p.plan(ctx(model, st, t, ["A"]))
-    system, user = fake.seen[-1][0][0]["content"], fake.seen[-1][0][1]["content"]
-    assert "RETRIEVED KNOWLEDGE" in system and "RETRIEVED KNOWLEDGE" in user
-    assert "3 in the last 2 h" in user
-    assert "normal rate in fault-free operation: 0.50/h" in user
-    assert "t=30: alarm STATION_FAILURE flagged A" in user
+    user = fake.seen[-1][0][1]["content"]
+    assert "too short to compare" in user and "3 alarms so far" in user
+    assert "RETRIEVED KNOWLEDGE" in fake.seen[-1][0][0]["content"]
+
+
+def test_c2_compares_observed_with_expected_alarms(model):
+    from ssac.rag_planner import RAGPlanner
+    fake = FakeModel(reply())
+    p = RAGPlanner(fake, baseline_per_min={"A": 0.5 / 60}, min_history_h=8, cooldown_min=0)
+    st = InterventionState(model)
+    p.plan(ctx(model, st, 0.0, ["A"]))           # start of operation
+    for t in range(1500, 1620, 20):              # 6 alarms within 2 h, 25 h in
+        p.plan(ctx(model, st, float(t), ["A"]))
+    user = fake.seen[-1][0][1]["content"]
+    assert "last 2 h: 6 alarms; its normal rate predicts 1.0" in user
+    assert "last 24 h: 6 alarms; its normal rate predicts 12.0" in user
+    assert "[A] (no twin)" in user
+
+
+def test_c2_marks_stations_that_never_alarmed_normally(model):
+    from ssac.rag_planner import RAGPlanner
+    fake = FakeModel(reply())
+    p = RAGPlanner(fake, baseline_per_min={}, min_history_h=0, cooldown_min=0)
+    st = InterventionState(model)
+    p.plan(ctx(model, st, 0.0, ["A"]))
+    p.plan(ctx(model, st, 60.0, ["A"]))
+    assert "never alarmed in fault-free operation" in fake.seen[-1][0][1]["content"]
 
 
 def test_c2_flags_self_inflicted_load(model):
     from ssac.rag_planner import RAGPlanner
-    fake = FakeModel({"act": [], "reason": ""})
+    fake = FakeModel(reply())
     st = InterventionState(model)
     st.apply(Reroute("B1", "B2"), 0.0)
     RAGPlanner(fake).plan(ctx(model, st, 10.0, ["B2"]))
     assert "rerouting the load of B1 ONTO B2" in fake.seen[0][0][1]["content"]
 
 
-def test_c2_reports_repair_outcomes(model):
+def test_c2_reports_repair_outcomes_digested(model):
     from ssac.rag_planner import RAGPlanner
-    fake = FakeModel({"act": [], "reason": ""})
+    fake = FakeModel(reply())
     p = RAGPlanner(fake, cooldown_min=0)
     st = InterventionState(model)
     for t in (10.0, 20.0, 30.0):                  # 3 alarms before the repair
@@ -225,11 +260,11 @@ def test_c2_reports_repair_outcomes(model):
     for t in (110.0, 400.0):                      # 1 alarm in the 2 h after
         p.plan(ctx(model, st, t, ["A"]))
     user = fake.seen[-1][0][1]["content"]
-    assert "repaired at t=40: 3 alarms in the 2 h before, 1 in the 2 h after" in user
+    assert "after the repair at t=40 its alarms dropped (3 in the 2 h before, 1 in the 2 h after)" in user
     assert "you applied MAINTENANCE A (60 min)" in user
 
 
 def test_c1_prompt_has_no_retrieved_knowledge(model):
-    fake = FakeModel({"act": [], "reason": ""})
+    fake = FakeModel(reply())
     LLMPlanner(fake).plan(ctx(model, InterventionState(model), 0.0, ["A"]))
     assert "RETRIEVED" not in fake.seen[0][0][0]["content"] + fake.seen[0][0][1]["content"]

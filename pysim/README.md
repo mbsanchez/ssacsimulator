@@ -311,6 +311,38 @@ Fallo escalón. Cada fila cambia un único parámetro respecto al punto central.
 7. **La traza 200m-300m es la más difícil** para todos (+0,15 / +0,23).
 8. **Las acciones generan sus propios síntomas**: desviar L3_S36 a L3_S35 la congestiona, y L3_S35 alarma y se desvía de vuelta. Una regla no puede reconocer una alarma como autoinducida; un planificador con acceso a su propio log sí podría.
 
+## Planificadores LLM (C1, C2)
+
+Modelo local **qwen2.5:7b** vía Ollama (coste cero, reproducible). Cliente en
+`ssac/llm.py`: solo biblioteca estándar, temperatura 0 y semilla fija, y una
+caché SQLite (`cache/llm_cache.sqlite`) indexada por la petición completa, que
+hace los barridos reanudables y reproducibles sin GPU.
+
+| | Qué ve | Módulo |
+|---|---|---|
+| **C1** | La alarma, qué estaciones son accionables, si tienen gemela libre, y las intervenciones en curso. La misma información estructural que las reglas. | `ssac/llm_planner.py` |
+| **C2** | C1 + **conocimiento recuperado** de la memoria operativa: alarmas observadas frente a las esperadas con la tasa normal (2 h y 24 h), carga que el propio controlador está desviando hacia la estación, efecto de reparaciones anteriores y registros recientes. | `ssac/rag_planner.py` |
+| `rules_twin` | **Control**, no método: repara toda estación marcada que tenga gemela libre e ignora las demás. Es la heurística que C1 v1 resultó seguir. | `ssac/planning.py` |
+
+Reparto de responsabilidades, deliberadamente estrecho: el LLM da un
+**veredicto por estación** (degradada / normal / autoinducida / evidencia
+insuficiente) y elige el **tipo** de acción; el código elige la gemela y
+descarta toda acción incoherente con el veredicto; el esquema JSON restringe
+las estaciones a las accionables (el decodificador no puede inventar otra); y
+toda acción pasa por el validador simbólico.
+
+La recuperación es por clave (estación) y por recencia, no por embeddings:
+sobre un log estructurado el nombre de la estación es una clave exacta. Todas
+las cifras las calcula el código; el LLM nunca hace aritmética sobre el log.
+
+### Protocolo
+
+- **Desarrollo** (`dev_llm.py`): el prompt y el contexto se iteran **solo**
+  sobre la traza 0-100m. Cada versión queda en `results/dev_log.md`.
+- **Evaluación final** (`llm_sweep.py`, lanzado con `run_overnight.sh`): prompt
+  congelado, solo las tres trazas reservadas. Reanudable; guarda cada decisión
+  del LLM en `results/llm_sweep_calls.csv` para el análisis cualitativo.
+
 ## Próximo paso
 
 1. **C1**: planificador LLM sin recuperación.

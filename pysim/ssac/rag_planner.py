@@ -30,17 +30,23 @@ from bisect import bisect_left, bisect_right
 from dataclasses import dataclass, field
 
 from .actions import Maintenance, Reroute, Restore, describe
-from .llm_planner import SYSTEM_PROMPT, LLMPlanner
+from .llm_planner import SYSTEM_PROMPT, LLMPlanner, twin_status
 from .planning import PlanningContext
 from .topology import SENTINELS
 
 C2_SYSTEM_SUFFIX = """
 
-You also receive RETRIEVED KNOWLEDGE for each station: its alarm history compared with its normal (fault-free) alarm rate, whether you are currently pushing extra load onto it, what happened after you repaired it before, and recent log records. Use it:
-- a station alarming far more often than its normal rate, steadily, is probably degraded;
-- a station alarming at about its normal rate is probably healthy;
-- a station receiving load you rerouted onto it will alarm because of you; repairing it does not help;
-- if repairing a station before did not reduce its alarms, its alarms are probably noise."""
+You also receive RETRIEVED KNOWLEDGE for each station, computed from your operational log:
+- how many alarms the station raised recently, and how many its normal (fault-free) alarm rate would predict over the same period;
+- whether you are currently pushing extra load onto it;
+- what happened to its alarms after you repaired it before;
+- its recent log records.
+How to read it:
+- many more alarms than expected, sustained over the last 24 h, points to "degraded";
+- about as many alarms as expected points to "normal";
+- a station receiving load you rerouted onto it is "self_inflicted": repairing it does not help;
+- if alarms did not drop after a previous repair, the alarms were probably not caused by a fault;
+- with too little history, prefer "insufficient_evidence"."""
 
 
 @dataclass
@@ -86,7 +92,8 @@ class OperationalMemory:
 @dataclass
 class RAGPlanner(LLMPlanner):
     baseline_per_min: dict[str, float] = field(default_factory=dict)
-    k_records: int = 6
+    k_records: int = 4
+    min_history_h: float = 8.0
     name: str = "llm_c2"
     memory: OperationalMemory = field(default_factory=OperationalMemory)
 
@@ -104,32 +111,38 @@ class RAGPlanner(LLMPlanner):
                 continue  # not enough time after the repair to judge
             before = self.memory.count(station, start - 120, start)
             after = self.memory.count(station, end, end + 120)
-            out.append(f"repaired at t={start:.0f}: {before} alarms in the 2 h before, {after} in the 2 h after")
+            trend = "dropped" if after < before else ("rose" if after > before else "did not change")
+            out.append(f"after the repair at t={start:.0f} its alarms {trend} ({before} in the 2 h before, {after} in the 2 h after)")
         return out
 
     def context_block(self, ctx: PlanningContext, eligible: list[str]) -> list[str]:
         t = ctx.t_min
         mem = self.memory
-        elapsed_h = max((t - (mem.t_start or t)) / 60.0, 1e-9)
+        elapsed_h = 0.0 if mem.t_start is None else max((t - mem.t_start) / 60.0, 0.0)
         lines = ["RETRIEVED KNOWLEDGE"]
         for s in eligible:
-            base = self.baseline_per_min.get(s)
-            base_txt = f"{base * 60:.2f}/h" if base is not None else "never alarmed in fault-free operation"
-            total = mem.count(s, float("-inf"), t)
-            lines.append(f"[{s}]")
-            lines.append(
-                f"- alarms: {mem.count(s, t - 120, t)} in the last 2 h, {mem.count(s, t - 1440, t)} in the last 24 h, "
-                f"{total} since operation started ({total / elapsed_h:.2f}/h over {elapsed_h:.0f} h); "
-                f"normal rate in fault-free operation: {base_txt}"
-            )
+            lines.append(f"[{s}] ({twin_status(s, ctx)})")
+            if elapsed_h < self.min_history_h:
+                lines.append(
+                    f"- history: only {elapsed_h:.1f} h of operation so far, too short to compare "
+                    f"with normal alarm rates ({mem.count(s, float('-inf'), t)} alarms so far)"
+                )
+            else:
+                rate_h = self.baseline_per_min.get(s, 0.0) * 60.0
+                for label, hours in (("2 h", 2.0), ("24 h", 24.0)):
+                    span = min(hours, elapsed_h)
+                    observed = mem.count(s, t - span * 60.0, t)
+                    expected = rate_h * span
+                    lines.append(
+                        f"- last {label}: {observed} alarms; its normal rate predicts {expected:.1f}"
+                        + ("" if rate_h > 0 else " (it never alarmed in fault-free operation)")
+                    )
             onto = [src for src, (twin, _) in ctx.interventions.reroutes.items() if twin == s]
             if onto:
                 lines.append(f"- you are currently rerouting the load of {', '.join(onto)} ONTO {s}")
-            outcomes = self._repair_outcomes(s, ctx)
-            if outcomes:
-                lines.append("- past repairs: " + "; ".join(outcomes))
+            for o in self._repair_outcomes(s, ctx):
+                lines.append(f"- {o}")
             recent = mem.recent(s, t, self.k_records)
             if recent:
-                lines.append("- recent log:")
-                lines += [f"    {r}" for r in recent]
+                lines.append("- recent log: " + " | ".join(recent))
         return lines
