@@ -188,8 +188,24 @@ def test_client_raises_on_transport_error(monkeypatch):
         raise urllib.error.URLError("connection refused")
 
     monkeypatch.setattr("urllib.request.urlopen", boom)
-    with pytest.raises(LLMError, match="connection refused"):
-        OllamaClient().chat([{"role": "user", "content": "x"}])
+    with pytest.raises(LLMError, match="after 3 attempts.*connection refused"):
+        OllamaClient(retries=2, retry_wait_s=0).chat([{"role": "user", "content": "x"}])
+
+
+def test_client_retries_transient_failures(monkeypatch):
+    import urllib.error
+    attempts = []
+
+    def flaky(req, timeout):
+        attempts.append(1)
+        if len(attempts) < 3:
+            raise urllib.error.URLError("temporarily unavailable")
+        return _FakeHTTP(json.dumps({"message": {"content": '{"ok": true}'}}).encode())
+
+    monkeypatch.setattr("urllib.request.urlopen", flaky)
+    c = OllamaClient(retries=4, retry_wait_s=0)
+    assert c.chat([{"role": "user", "content": "x"}]).parsed == {"ok": True}
+    assert len(attempts) == 3 and c.stats["retries"] == 2
 
 
 # ---- C2: retrieval-augmented planner -------------------------------------

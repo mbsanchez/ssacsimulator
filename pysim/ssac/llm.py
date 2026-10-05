@@ -60,6 +60,8 @@ class OllamaClient:
     seed: int = 7
     num_predict: int = 400
     timeout_s: float = 300.0
+    retries: int = 4              # transport failures retried before giving up
+    retry_wait_s: float = 30.0    # doubled after each failed attempt
     cache_path: Path | None = None
     stats: dict = field(default_factory=lambda: {"calls": 0, "cache_hits": 0, "seconds": 0.0, "invalid_json": 0})
 
@@ -93,12 +95,23 @@ class OllamaClient:
 
         body = json.dumps({**request, "stream": False}).encode()
         req = urllib.request.Request(f"{self.url}/api/chat", body, {"Content-Type": "application/json"})
-        t0 = time.perf_counter()
-        try:
-            with urllib.request.urlopen(req, timeout=self.timeout_s) as resp:
-                payload = json.load(resp)
-        except (urllib.error.URLError, TimeoutError, ConnectionError) as exc:
-            raise LLMError(f"Ollama request failed ({self.url}, model {self.model}): {exc}") from exc
+        payload = None
+        wait = self.retry_wait_s
+        for attempt in range(self.retries + 1):
+            t0 = time.perf_counter()
+            try:
+                with urllib.request.urlopen(req, timeout=self.timeout_s) as resp:
+                    payload = json.load(resp)
+                break
+            except (urllib.error.URLError, TimeoutError, ConnectionError) as exc:
+                if attempt == self.retries:
+                    raise LLMError(
+                        f"Ollama request failed after {self.retries + 1} attempts "
+                        f"({self.url}, model {self.model}): {exc}"
+                    ) from exc
+                self.stats["retries"] = self.stats.get("retries", 0) + 1
+                time.sleep(wait)
+                wait *= 2
         latency = time.perf_counter() - t0
         self.stats["seconds"] += latency
 
