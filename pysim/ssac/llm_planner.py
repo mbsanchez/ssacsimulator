@@ -160,18 +160,25 @@ class LLMPlanner:
     def observe(self, ctx: PlanningContext) -> None:
         """Hook called on every detection, actionable or not."""
 
-    def plan(self, ctx: PlanningContext) -> list[Action]:
-        self.observe(ctx)
-        if ctx.detection.type.value not in self.react_to:
-            return []
-
+    def select(self, ctx: PlanningContext) -> list[str]:
+        """Stations the LLM is asked about. C1/C2: every eligible flagged
+        station. The hybrid planner overrides this with the change test."""
         eligible: list[str] = []
         for s in ctx.detection.stations:
             if s not in eligible and _eligible(s, ctx, self._last_acted, self.cooldown_min):
                 eligible.append(s)
+        return eligible
+
+    def plan(self, ctx: PlanningContext) -> list[Action]:
+        self.observe(ctx)
+        if ctx.detection.type.value not in self.react_to:
+            return []
+        eligible = self.select(ctx)
         if not eligible:
             return []
+        return self.decide(ctx, eligible)
 
+    def decide(self, ctx: PlanningContext, eligible: list[str]) -> list[Action]:
         resp = self.client.chat(self.build_messages(ctx, eligible), response_schema(eligible))
         problems: list[str] = []
         verdicts: dict[str, str] = {}

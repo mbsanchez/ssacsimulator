@@ -203,15 +203,23 @@ class AdaptiveRulePlanner:
     _last_acted: dict[str, float] = field(default_factory=dict)
     _t0: float | None = None
 
-    def plan(self, ctx: PlanningContext) -> list[Action]:
+    _snoozed: dict[str, float] = field(default_factory=dict)
+
+    def snooze(self, station: str, until_min: float) -> None:
+        """Do not propose `station` again before `until_min` (used by the
+        hybrid planner after the LLM vetoes it)."""
+        self._snoozed[station] = until_min
+
+    def candidates(self, ctx: PlanningContext) -> list[str]:
+        """Stations judged anomalous by the change test and eligible for
+        action. Updates the alarm history; does not decide what to do."""
         if self._t0 is None:
             self._t0 = ctx.t_min
         if ctx.detection.type.value not in self.react_to:
             return []
 
         t = ctx.t_min
-        actions: list[Action] = []
-        claimed: set[str] = set()
+        out: list[str] = []
         for station in ctx.detection.stations:
             if station in SENTINELS:
                 continue
@@ -230,10 +238,39 @@ class AdaptiveRulePlanner:
             rate = (long_ + self.prior_alarms) / span
             threshold = max(poisson_threshold(rate * self.window_min, self.alpha), self.min_count)
 
-            if short >= threshold and _eligible(station, ctx, self._last_acted, self.cooldown_min):
-                actions += respond(station, ctx, claimed, self.repair_min)
-                self._last_acted[station] = t
+            if (short >= threshold and station not in out
+                    and t >= self._snoozed.get(station, float("-inf"))
+                    and self.accept(station, ctx)
+                    and _eligible(station, ctx, self._last_acted, self.cooldown_min)):
+                out.append(station)
+        return out
+
+    def accept(self, station: str, ctx: PlanningContext) -> bool:
+        """Extra filter on candidates; subclasses override."""
+        return True
+
+    def plan(self, ctx: PlanningContext) -> list[Action]:
+        actions: list[Action] = []
+        claimed: set[str] = set()
+        for station in self.candidates(ctx):
+            actions += respond(station, ctx, claimed, self.repair_min)
+            self._last_acted[station] = ctx.t_min
         return actions
+
+
+@dataclass
+class ContextAdaptiveRulePlanner(AdaptiveRulePlanner):
+    """Control for the hybrid planner — not a proposed method.
+
+    The adaptive rule plus the one contextual veto that is easy to write as a
+    rule: never act on a station that is receiving load the controller itself
+    rerouted onto it. If the hybrid LLM planner does no better than this, its
+    contribution cannot be attributed to the LLM.
+    """
+    name: str = "rules_adapt_ctx"
+
+    def accept(self, station: str, ctx: PlanningContext) -> bool:
+        return ctx.interventions.inbound_share(station) == 0
 
 
 @dataclass

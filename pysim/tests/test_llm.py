@@ -284,3 +284,61 @@ def test_c1_prompt_has_no_retrieved_knowledge(model):
     fake = FakeModel(reply())
     LLMPlanner(fake).plan(ctx(model, InterventionState(model), 0.0, ["A"]))
     assert "RETRIEVED" not in fake.seen[0][0][0]["content"] + fake.seen[0][0][1]["content"]
+
+
+# ---- hybrid: change test triages, LLM vetoes ------------------------------
+
+def _eager_detector():
+    """An adaptive detector that flags a station on its first alarm."""
+    from ssac.planning import AdaptiveRulePlanner
+    return AdaptiveRulePlanner(warmup_min=0, min_count=1, alpha=0.5, prior_alarms=0.001)
+
+
+def test_hybrid_does_not_call_the_llm_without_candidates(model):
+    from ssac.hybrid_planner import HybridPlanner
+    from ssac.planning import AdaptiveRulePlanner
+    fake = FakeModel(reply())
+    p = HybridPlanner(fake, detector=AdaptiveRulePlanner(warmup_min=480))
+    assert p.plan(ctx(model, InterventionState(model), 10.0, ["A", "B1"])) == []
+    assert fake.seen == []
+
+
+def test_hybrid_asks_only_about_detector_candidates_and_acts_on_confirmation(model):
+    from ssac.hybrid_planner import HybridPlanner
+    fake = FakeModel(lambda msgs, schema: reply(**{s: ("degraded", "maintain")
+                                                   for s in schema["properties"]["stations"]["required"]}))
+    p = HybridPlanner(fake, detector=_eager_detector())
+    acts = p.plan(ctx(model, InterventionState(model), 0.0, ["A"]))
+    assert acts == [Maintenance("A", 60.0)]
+    assert fake.seen[0][1]["properties"]["stations"]["required"] == ["A"]
+    assert p.detector._last_acted["A"] == 0.0
+    assert "statistical change detector" in fake.seen[0][0][0]["content"]
+
+
+def test_hybrid_veto_blocks_action_and_snoozes_the_station(model):
+    from ssac.hybrid_planner import HybridPlanner
+    fake = FakeModel(reply(A=("self_inflicted", "none")))
+    p = HybridPlanner(fake, detector=_eager_detector(), veto_snooze_min=120)
+    st = InterventionState(model)
+    assert p.plan(ctx(model, st, 0.0, ["A"])) == []
+    assert p.detector._snoozed["A"] == 120.0
+    assert p.plan(ctx(model, st, 60.0, ["A"])) == []      # snoozed: not asked again
+    assert len(fake.seen) == 1
+
+
+def test_detector_respects_snooze(model):
+    st = InterventionState(model)
+    before = _eager_detector()
+    before.snooze("A", 100.0)
+    assert before.candidates(ctx(model, st, 50.0, ["A"])) == []
+    after = _eager_detector()
+    after.snooze("A", 100.0)
+    assert after.candidates(ctx(model, st, 150.0, ["A"])) == ["A"]
+
+
+def test_context_control_skips_stations_receiving_rerouted_load(model):
+    from ssac.planning import ContextAdaptiveRulePlanner
+    det = ContextAdaptiveRulePlanner(warmup_min=0, min_count=1, alpha=0.5, prior_alarms=0.001)
+    st = InterventionState(model)
+    st.apply(Reroute("B1", "B2"), 0.0)
+    assert det.plan(ctx(model, st, 0.0, ["B2", "A"])) == [Maintenance("A", 60.0)]

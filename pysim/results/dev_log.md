@@ -43,3 +43,18 @@ Observaciones sobre la v2:
 - **En L0_S2 los aciertos no son detecciones.** C2 obtuvo sus 41 respuestas de la caché de la corrida sin fallo: recibió los mismos prompts con y sin fallo, así que su reparación de L0_S2 fue de rutina. `rules_cal` y `rules_twin` hacen también el mismo número de acciones que sin fallo. El detector legacy apenas ve este fallo. De aquí sale la métrica de **acierto específico** de `llm_sweep.py`.
 - 630 de 914 veredictos son "insufficient_evidence", sobre todo durante las 8 h iniciales sin historia.
 - Rendimiento: ~19 s por llamada nueva con prompts de ~1.900 tokens, con la máquina en presión de memoria (9,5 GB de swap). Sin truncado: prompt máximo 3.261 tokens < 4.096.
+
+## 2026-10-06 06:49 — prompts (hybrid: v2+h1), model qwen2.5:7b, trace test_cases_0-100m.td
+
+h1: híbrido. La regla adaptativa selecciona las estaciones; el LLM (contexto de C2 + sufijo h1) confirma o veta y elige la acción. Una estación vetada no se reconsulta durante 120 min. Control nuevo: rules_adapt_ctx (adaptativa que no actúa sobre estaciones que reciben carga desviada).
+
+| Caso | rules_cal | rules_adapt | rules_twin | rules_adapt_ctx | hybrid |
+|---|---|---|---|---|---|
+| fault-free | 284/h · 36 FP | 26/h · 4 FP | 214/h · 27 FP | 18/h · 2 FP | 8/h · 1 FP |
+| L0_S2 step | +0.73 · 35 FP | -0.02 · 4 FP | +0.78 · 26 FP | -0.01 · 2 FP | -0.01 · 1 FP |
+| L3_S29 step | +0.65 · 37 FP | +0.82 · 6 FP | -0.19 · 32 FP | +0.83 · 5 FP | +0.84 · 4 FP |
+| L0_S8 drift | +0.77 · 37 FP | +0.94 · 6 FP | -0.17 · 32 FP | +0.94 · 5 FP | +0.94 · 5 FP |
+
+Fault-free: false-alarm cost in piece-minutes per hour. Faults: recovery vs. no action. FP = repairs of healthy stations.
+
+- hybrid: 17 calls, verdicts {'degraded': 16, 'self_inflicted': 4}, problems none

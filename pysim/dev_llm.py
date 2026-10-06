@@ -26,7 +26,9 @@ from ssac.intervention import Fault
 from ssac.llm import OllamaClient
 from ssac.llm_planner import PROMPT_VERSION, LLMPlanner
 from ssac.metrics import outcome
-from ssac.planning import AdaptiveRulePlanner, CalibratedRulePlanner, NoOpPlanner, TwinOnlyRulePlanner
+from ssac.hybrid_planner import HybridPlanner
+from ssac.planning import (AdaptiveRulePlanner, CalibratedRulePlanner, ContextAdaptiveRulePlanner, NoOpPlanner,
+                           TwinOnlyRulePlanner)
 from ssac.rag_planner import RAGPlanner
 
 HERE = Path(__file__).resolve().parent
@@ -44,7 +46,7 @@ DEV_SET = [            # (label, station, shape); None = fault-free run
 
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--planners", nargs="+", default=["c2"], choices=["c1", "c2"])
+    ap.add_argument("--planners", nargs="+", default=["c2"], choices=["c1", "c2", "hybrid"])
     ap.add_argument("--model", default="qwen2.5:7b")
     ap.add_argument("--note", default="")
     ap.add_argument("--cache", type=Path, default=HERE / "cache" / "llm_cache.sqlite")
@@ -67,6 +69,8 @@ def main() -> int:
             "rules_twin": lambda: TwinOnlyRulePlanner(),
             "c1": lambda: LLMPlanner(client),
             "c2": lambda: RAGPlanner(client, baseline_per_min=rates),
+            "hybrid": lambda: HybridPlanner(client, baseline_per_min=rates),
+            "rules_adapt_ctx": lambda: ContextAdaptiveRulePlanner(),
         }[name]()
 
     rows = []
@@ -74,7 +78,7 @@ def main() -> int:
     for label, station, shape in DEV_SET:
         faults = [] if station is None else [Fault(station, 3.0, data.events[0].start_time + 600, shape=shape)]
         base = None
-        for name in ["noop", "rules_cal", "rules_adapt", "rules_twin"] + args.planners:
+        for name in ["noop", "rules_cal", "rules_adapt", "rules_twin", "rules_adapt_ctx"] + args.planners:
             planner = make(name)
             m, _ = BusinessProcessModel.load(MODEL)
             eng = SimulationEngine(m, data, faults=faults, planner=planner)
@@ -110,10 +114,11 @@ def main() -> int:
     log = HERE / "results" / "dev_log.md"
     log.parent.mkdir(exist_ok=True)
     stamp = dt.datetime.now().strftime("%Y-%m-%d %H:%M")
-    lines = [f"\n## {stamp} — prompt {PROMPT_VERSION}, model {args.model}, trace {DEV_TRACE}\n"]
+    versions = ", ".join(f"{n}: {'v2+h1' if n == 'hybrid' else PROMPT_VERSION}" for n in args.planners)
+    lines = [f"\n## {stamp} — prompts ({versions}), model {args.model}, trace {DEV_TRACE}\n"]
     if args.note:
         lines.append(f"{args.note}\n")
-    names = ["rules_cal", "rules_adapt", "rules_twin"] + args.planners
+    names = ["rules_cal", "rules_adapt", "rules_twin", "rules_adapt_ctx"] + args.planners
     lines.append("| Caso | " + " | ".join(names) + " |")
     lines.append("|---|" + "---|" * len(names))
     for label, station, _ in DEV_SET:

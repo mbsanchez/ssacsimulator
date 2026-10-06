@@ -32,7 +32,9 @@ from ssac.intervention import Fault
 from ssac.llm import OllamaClient
 from ssac.llm_planner import PROMPT_VERSION, LLMPlanner
 from ssac.metrics import outcome
-from ssac.planning import AdaptiveRulePlanner, CalibratedRulePlanner, NoOpPlanner, TwinOnlyRulePlanner
+from ssac.hybrid_planner import HybridPlanner
+from ssac.planning import (AdaptiveRulePlanner, CalibratedRulePlanner, ContextAdaptiveRulePlanner, NoOpPlanner,
+                           TwinOnlyRulePlanner)
 from ssac.rag_planner import RAGPlanner
 
 HERE = Path(__file__).resolve().parent
@@ -52,8 +54,9 @@ HELD_OUT = {
 STATIONS_TWIN = ["L0_S2", "L0_S4", "L0_S6", "L3_S35"]
 STATIONS_NO_TWIN = ["L0_S1", "L0_S8", "L3_S29", "L3_S33"]
 SHAPES = ["step", "intermittent", "drift"]
-RULES = ["noop", "rules_cal", "rules_adapt", "rules_twin"]
-LLMS = ["llm_c2", "llm_c1"]
+RULES = ["noop", "rules_cal", "rules_adapt", "rules_twin", "rules_adapt_ctx"]
+LLMS = ["llm_c2", "llm_c1", "hybrid"]
+LLM_VERSIONS = {"llm_c1": PROMPT_VERSION, "llm_c2": PROMPT_VERSION, "hybrid": "v2+h1"}
 FAULT_OFFSET_MIN = 600.0
 
 ROW_FIELDS = ["trace", "station", "shape", "planner", "model", "prompt_version", "excess_delay_min",
@@ -81,7 +84,7 @@ def load_done(model: str) -> set[tuple]:
         return {
             (r["trace"], r["station"], r["shape"], r["planner"])
             for r in csv.DictReader(fh)
-            if r["planner"] in RULES or (r["model"] == model and r["prompt_version"] == PROMPT_VERSION)
+            if r["planner"] in RULES or (r["model"] == model and r["prompt_version"] == LLM_VERSIONS.get(r["planner"]))
         }
 
 
@@ -102,7 +105,8 @@ def run(args) -> None:
     # Phase 1: rules + C2 on every scenario; phase 2: C1. If the night runs
     # out, the main comparison (C2 vs. rules) is complete and C1 resumes later.
     phases = [[p for p in RULES + ["llm_c2"] if p in args.planners],
-              [p for p in ["llm_c1"] if p in args.planners]]
+              [p for p in ["llm_c1"] if p in args.planners],
+              [p for p in ["hybrid"] if p in args.planners]]
     total = len(todo) * len(args.planners)
     print(f"{dt.datetime.now():%H:%M} prompt {PROMPT_VERSION}, model {args.model}: "
           f"{len(done)} runs already done, {total} in plan", flush=True)
@@ -131,6 +135,8 @@ def run(args) -> None:
                     "rules_cal": lambda: CalibratedRulePlanner(rates),
                     "rules_adapt": lambda: AdaptiveRulePlanner(),
                     "rules_twin": lambda: TwinOnlyRulePlanner(),
+                    "rules_adapt_ctx": lambda: ContextAdaptiveRulePlanner(),
+                    "hybrid": lambda: HybridPlanner(client, baseline_per_min=rates),
                     "llm_c1": lambda: LLMPlanner(client),
                     "llm_c2": lambda: RAGPlanner(client, baseline_per_min=rates),
                 }[name]()
@@ -143,7 +149,7 @@ def run(args) -> None:
                 is_llm = isinstance(planner, LLMPlanner)
                 append(ROWS, ROW_FIELDS, [{
                     "trace": trace, "station": station, "shape": shape, "planner": name,
-                    "model": args.model if is_llm else "", "prompt_version": PROMPT_VERSION if is_llm else "",
+                    "model": args.model if is_llm else "", "prompt_version": planner.prompt_version if is_llm else "",
                     "excess_delay_min": round(o.excess_delay_min, 3),
                     "maintenances_on_fault": o.maintenances_on_fault, "maintenances_false": o.maintenances_false,
                     "first_action_latency_min": o.first_action_latency_min, "pieces_rerouted": o.pieces_rerouted,
@@ -183,7 +189,7 @@ def summarize() -> None:
     for r in rows:
         r["excess"] = float(r["excess_delay_min"])
     noop = {(r["trace"], r["station"], r["shape"]): r["excess"] for r in rows if r["planner"] == "noop"}
-    planners = ["rules_cal", "rules_adapt", "rules_twin"] + [p for p in LLMS if any(r["planner"] == p for r in rows)]
+    planners = ["rules_cal", "rules_adapt", "rules_twin", "rules_adapt_ctx"] + [p for p in LLMS if any(r["planner"] == p for r in rows)]
     twins = set(STATIONS_TWIN)
 
     def pooled(sel):
