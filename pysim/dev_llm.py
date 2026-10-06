@@ -47,7 +47,10 @@ DEV_SET = [            # (label, station, shape); None = fault-free run
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--planners", nargs="+", default=["c2"], choices=["c1", "c2", "hybrid"])
-    ap.add_argument("--model", default="qwen2.5:7b")
+    ap.add_argument("--backend", choices=["ollama", "agent-sdk"], default="ollama",
+                    help="ollama = local model; agent-sdk = Claude via the Claude Agent SDK (Claude plan)")
+    ap.add_argument("--model", default=None, help="default: qwen2.5:7b (ollama) / claude-fable-5-1 (agent-sdk)")
+    ap.add_argument("--effort", default="low", help="agent-sdk only")
     ap.add_argument("--note", default="")
     ap.add_argument("--cache", type=Path, default=HERE / "cache" / "llm_cache.sqlite")
     args = ap.parse_args()
@@ -59,7 +62,13 @@ def main() -> int:
     ref = SimulationEngine(m, data)
     ref.run()
     reference = dict(ref.lifetimes)
-    client = OllamaClient(model=args.model, cache_path=args.cache)
+    if args.backend == "agent-sdk":
+        from ssac.agent_sdk_client import AgentSDKClient
+        args.model = args.model or "claude-fable-5-1"
+        client = AgentSDKClient(model=args.model, effort=args.effort, cache_path=args.cache)
+    else:
+        args.model = args.model or "qwen2.5:7b"
+        client = OllamaClient(model=args.model, cache_path=args.cache)
 
     def make(name):
         return {
@@ -136,6 +145,10 @@ def main() -> int:
             v.update(r["verdicts"])
             pr.update(r["problems"])
         lines.append(f"- {name}: {sum(r['calls'] for r in rs)} calls, verdicts {dict(v)}, problems {dict(pr) or 'none'}")
+    if "api_equivalent_usd" in client.stats:
+        lines.append(f"- backend agent-sdk, effort {args.effort}: {client.stats['calls']} calls "
+                     f"({client.stats['cache_hits']} cached), API-equivalent cost "
+                     f"${client.stats['api_equivalent_usd']:.2f}, retries {client.stats['retries']}")
     with log.open("a") as fh:
         fh.write("\n".join(lines) + "\n")
     print(f"\nappended to {log}")

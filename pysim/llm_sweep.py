@@ -77,15 +77,22 @@ def scenarios(limit: int | None):
     return out[:limit] if limit else out
 
 
-def load_done(model: str) -> set[tuple]:
+def label(name: str, tag: str) -> str:
+    """Row name for a planner: LLM planners run on a non-default model carry
+    a tag (e.g. 'hybrid:fable-5.1') so models are never pooled together."""
+    return f"{name}:{tag}" if tag and name in LLMS else name
+
+
+def load_done(model: str, tag: str) -> set[tuple]:
     if not ROWS.exists():
         return set()
     with ROWS.open() as fh:
-        return {
-            (r["trace"], r["station"], r["shape"], r["planner"])
-            for r in csv.DictReader(fh)
-            if r["planner"] in RULES or (r["model"] == model and r["prompt_version"] == LLM_VERSIONS.get(r["planner"]))
-        }
+        done = set()
+        for r in csv.DictReader(fh):
+            base = r["planner"].split(":")[0]
+            if base in RULES or (r["model"] == model and r["prompt_version"] == LLM_VERSIONS.get(base)):
+                done.add((r["trace"], r["station"], r["shape"], r["planner"]))
+        return done
 
 
 def append(path: Path, fields: list[str], rows: list[dict]) -> None:
@@ -99,14 +106,24 @@ def append(path: Path, fields: list[str], rows: list[dict]) -> None:
 
 def run(args) -> None:
     RESULTS.mkdir(exist_ok=True)
-    client = OllamaClient(model=args.model, cache_path=HERE / "cache" / "llm_cache.sqlite")
-    done = load_done(args.model)
+    if args.backend == "agent-sdk":
+        from ssac.agent_sdk_client import AgentSDKClient
+        client = AgentSDKClient(model=args.model, effort=args.effort, cache_path=HERE / "cache" / "llm_cache.sqlite")
+    else:
+        client = OllamaClient(model=args.model, cache_path=HERE / "cache" / "llm_cache.sqlite")
+    done = load_done(args.model, args.tag)
     todo = scenarios(args.limit)
     # Phase 1: rules + C2 on every scenario; phase 2: C1. If the night runs
     # out, the main comparison (C2 vs. rules) is complete and C1 resumes later.
-    phases = [[p for p in RULES + ["llm_c2"] if p in args.planners],
-              [p for p in ["llm_c1"] if p in args.planners],
-              [p for p in ["hybrid"] if p in args.planners]]
+    if args.backend == "agent-sdk":   # scarce quota: the hybrid first, then C2, then C1
+        phases = [[p for p in RULES if p in args.planners],
+                  [p for p in ["hybrid"] if p in args.planners],
+                  [p for p in ["llm_c2"] if p in args.planners],
+                  [p for p in ["llm_c1"] if p in args.planners]]
+    else:
+        phases = [[p for p in RULES + ["llm_c2"] if p in args.planners],
+                  [p for p in ["llm_c1"] if p in args.planners],
+                  [p for p in ["hybrid"] if p in args.planners]]
     total = len(todo) * len(args.planners)
     print(f"{dt.datetime.now():%H:%M} prompt {PROMPT_VERSION}, model {args.model}: "
           f"{len(done)} runs already done, {total} in plan", flush=True)
@@ -128,7 +145,7 @@ def run(args) -> None:
             faults = [] if not station else [Fault(station, 3.0, data.events[0].start_time + FAULT_OFFSET_MIN, shape=shape)]
 
             for name in phase:
-                if (trace, station, shape, name) in done:
+                if (trace, station, shape, label(name, args.tag)) in done:
                     continue
                 planner = {
                     "noop": lambda: NoOpPlanner(),
@@ -148,7 +165,7 @@ def run(args) -> None:
                 o = outcome(name, eng, reference, faults)
                 is_llm = isinstance(planner, LLMPlanner)
                 append(ROWS, ROW_FIELDS, [{
-                    "trace": trace, "station": station, "shape": shape, "planner": name,
+                    "trace": trace, "station": station, "shape": shape, "planner": label(name, args.tag),
                     "model": args.model if is_llm else "", "prompt_version": planner.prompt_version if is_llm else "",
                     "excess_delay_min": round(o.excess_delay_min, 3),
                     "maintenances_on_fault": o.maintenances_on_fault, "maintenances_false": o.maintenances_false,
@@ -164,7 +181,7 @@ def run(args) -> None:
                 }])
                 if is_llm:
                     append(CALLS, CALL_FIELDS, [{
-                        "trace": trace, "station": station, "shape": shape, "planner": name,
+                        "trace": trace, "station": station, "shape": shape, "planner": label(name, args.tag),
                         "t_min": round(c.t_min, 1), "eligible": " ".join(c.eligible),
                         "verdicts": json.dumps(c.verdicts), "acted_on": " ".join(c.acted_on),
                         "reason": c.reason, "problems": " | ".join(c.problems),
@@ -172,9 +189,12 @@ def run(args) -> None:
                     } for c in planner.calls])
                 finished += 1
                 el = time.perf_counter() - t_start
+                extra = ""
+                if "api_equivalent_usd" in client.stats:
+                    extra = f"  ${client.stats['api_equivalent_usd']:.2f} eq."
                 print(f"{dt.datetime.now():%H:%M} {trace.split('_')[2][:-3]:9} {station or 'fault-free':10} "
-                      f"{shape:12} {name:12} {time.perf_counter() - t0:6.0f}s  [{finished} new, {el / 3600:.1f} h]",
-                      flush=True)
+                      f"{shape:12} {label(name, args.tag):18} {time.perf_counter() - t0:6.0f}s  "
+                      f"[{finished} new, {el / 3600:.1f} h]{extra}", flush=True)
     summarize()
 
 
@@ -189,7 +209,11 @@ def summarize() -> None:
     for r in rows:
         r["excess"] = float(r["excess_delay_min"])
     noop = {(r["trace"], r["station"], r["shape"]): r["excess"] for r in rows if r["planner"] == "noop"}
-    planners = ["rules_cal", "rules_adapt", "rules_twin", "rules_adapt_ctx"] + [p for p in LLMS if any(r["planner"] == p for r in rows)]
+    present = []
+    for r in rows:
+        if r["planner"].split(":")[0] in LLMS and r["planner"] not in present:
+            present.append(r["planner"])
+    planners = ["rules_cal", "rules_adapt", "rules_twin", "rules_adapt_ctx"] + sorted(present)
     twins = set(STATIONS_TWIN)
 
     def pooled(sel):
@@ -262,13 +286,21 @@ def summarize() -> None:
 
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--model", default="qwen2.5:7b")
+    ap.add_argument("--backend", choices=["ollama", "agent-sdk"], default="ollama")
+    ap.add_argument("--model", default=None, help="default: qwen2.5:7b / claude-fable-5-1")
+    ap.add_argument("--effort", default="low", help="agent-sdk only")
+    ap.add_argument("--tag", default=None, help="row-name suffix for LLM planners (default: none for qwen, "
+                                                "'fable-5.1' for claude-fable-5-1)")
     ap.add_argument("--limit", type=int, default=None)
     ap.add_argument("--planners", nargs="+", default=RULES + LLMS, choices=RULES + LLMS,
                     help="subset of planners (smoke tests)")
     ap.add_argument("--summary", action="store_true")
     ap.add_argument("--results", type=Path, default=None, help="alternative results dir (smoke tests)")
     args = ap.parse_args()
+    if args.model is None:
+        args.model = "claude-fable-5-1" if args.backend == "agent-sdk" else "qwen2.5:7b"
+    if args.tag is None:
+        args.tag = {"claude-fable-5-1": "fable-5.1", "claude-fable-5": "fable-5"}.get(args.model, "" if args.backend == "ollama" else args.model)
     if args.results is not None:
         global RESULTS, ROWS, CALLS, SUMMARY
         RESULTS = args.results

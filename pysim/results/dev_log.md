@@ -58,3 +58,39 @@ h1: híbrido. La regla adaptativa selecciona las estaciones; el LLM (contexto de
 Fault-free: false-alarm cost in piece-minutes per hour. Faults: recovery vs. no action. FP = repairs of healthy stations.
 
 - hybrid: 17 calls, verdicts {'degraded': 16, 'self_inflicted': 4}, problems none
+
+## 2026-10-06 09:42 — prompts (hybrid: v2+h1, c2: v2), model claude-fable-5-1, trace test_cases_0-100m.td
+
+Piloto con Claude Fable 5.1 vía Agent SDK (plan Max), effort low. Prompts v2 / v2+h1 congelados, sin reajuste para este modelo. Objetivo: comparar con Qwen en desarrollo y medir el consumo de la cuota semanal de Fable (1% antes del piloto).
+
+| Caso | rules_cal | rules_adapt | rules_twin | rules_adapt_ctx | hybrid | c2 |
+|---|---|---|---|---|---|---|
+| fault-free | 284/h · 36 FP | 26/h · 4 FP | 214/h · 27 FP | 18/h · 2 FP | 0/h · 0 FP | 179/h · 25 FP |
+| L0_S2 step | +0.73 · 35 FP | -0.02 · 4 FP | +0.78 · 26 FP | -0.01 · 2 FP | +0.00 · 0 FP | +0.81 · 24 FP |
+| L3_S29 step | +0.65 · 37 FP | +0.82 · 6 FP | -0.19 · 32 FP | +0.83 · 5 FP | +0.84 · 4 FP | +0.76 · 25 FP |
+| L0_S8 drift | +0.77 · 37 FP | +0.94 · 6 FP | -0.17 · 32 FP | +0.94 · 5 FP | +0.95 · 4 FP | +0.87 · 22 FP |
+
+Fault-free: false-alarm cost in piece-minutes per hour. Faults: recovery vs. no action. FP = repairs of healthy stations.
+
+- hybrid: 15 calls, verdicts {'insufficient_evidence': 3, 'normal': 3, 'degraded': 10}, problems none
+- c2: 151 calls, verdicts {'insufficient_evidence': 566, 'degraded': 99, 'self_inflicted': 84, 'normal': 21}, problems none
+- backend agent-sdk, effort low: 166 calls (92 cached), API-equivalent cost $33.83, retries 0
+
+> **Entrada anterior INVÁLIDA (piloto Fable 5.1).** El Agent SDK cargaba los conectores MCP de la cuenta de claude.ai (Atlassian, Google Drive, etc.) en cada llamada: ~19.000 tokens de definiciones de herramientas ajenas al experimento, visibles para el modelo. Se corrige con `--strict-mcp-config` sin configuración MCP (`ssac/agent_sdk_client.py`, harness `strict-mcp-v1`, incluido en la clave de caché para que ninguna respuesta contaminada se reutilice). Coste equivalente por llamada: ~$0,46 → ~$0,025. Sus cifras no se usan; el piloto se repite a continuación.
+
+## 2026-10-06 10:00 — prompts (hybrid: v2+h1, c2: v2), model claude-fable-5-1, trace test_cases_0-100m.td
+
+Piloto Fable 5.1 REPETIDO con harness limpio (strict-mcp-v1: sin conectores MCP). Prompts v2 / v2+h1 congelados, effort low.
+
+| Caso | rules_cal | rules_adapt | rules_twin | rules_adapt_ctx | hybrid | c2 |
+|---|---|---|---|---|---|---|
+| fault-free | 284/h · 36 FP | 26/h · 4 FP | 214/h · 27 FP | 18/h · 2 FP | 9/h · 1 FP | 158/h · 22 FP |
+| L0_S2 step | +0.73 · 35 FP | -0.02 · 4 FP | +0.78 · 26 FP | -0.01 · 2 FP | -0.01 · 1 FP | +0.81 · 21 FP |
+| L3_S29 step | +0.65 · 37 FP | +0.82 · 6 FP | -0.19 · 32 FP | +0.83 · 5 FP | +0.84 · 3 FP | +0.78 · 22 FP |
+| L0_S8 drift | +0.77 · 37 FP | +0.94 · 6 FP | -0.17 · 32 FP | +0.94 · 5 FP | +0.95 · 4 FP | +0.88 · 22 FP |
+
+Fault-free: false-alarm cost in piece-minutes per hour. Faults: recovery vs. no action. FP = repairs of healthy stations.
+
+- hybrid: 15 calls, verdicts {'normal': 4, 'degraded': 11, 'insufficient_evidence': 1}, problems none
+- c2: 170 calls, verdicts {'insufficient_evidence': 853, 'degraded': 90, 'self_inflicted': 40, 'normal': 38}, problems none
+- backend agent-sdk, effort low: 185 calls (102 cached), API-equivalent cost $7.74, retries 0
