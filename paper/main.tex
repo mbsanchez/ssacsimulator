@@ -19,12 +19,13 @@
 
 \title{From detection to action: closing the autonomic loop of a self-coordinated manufacturing line with rule-based and retrieval-augmented LLM planners}
 
-\author[a]{Manuel S\'anchez\corref{cor1}}
-\ead{manuelbsan@gmail.com}
+\author[a,b]{Manuel S\'anchez\corref{cor1}}
+\ead{mbsanchez@unet.edu.ve}
 \author[b]{Ernesto Exposito}
+\ead{ernesto.exposito@univ-pau.fr}
 \cortext[cor1]{Corresponding author.}
-\address[a]{TODO: affiliation, country}
-\address[b]{Universit\'e de Pau et des Pays de l'Adour, TODO: laboratory and full affiliation, France}
+\address[a]{Universidad Nacional Experimental del T\'achira, San Crist\'obal, Venezuela}
+\address[b]{Univ Pau \& Pays Adour / E2S UPPA, Laboratoire d'informatique de l'Universit\'e de Pau et des Pays de l'Adour (LIUPPA), EA3000, 64000 Pau, France}
 
 \begin{abstract}
 Autonomic architectures for Industry~4.0 promise self-configuring, self-healing and self-optimising production, but published systems often stop at detection. We revisit our own 2020 self-coordinated manufacturing architecture and its simulator, and find that it implements Monitor and Analyze but not Plan, Execute or a Knowledge base: detected conditions only produce a log message. We port the simulator to a headless, tested engine over the Bosch production-line dataset and close the loop with an action space built on the line's parallel twin stations, a symbolic validator, fault injection (step, intermittent and drift faults) and an explicit effect model. We compare rule-based planners with large-language-model (LLM) planners with and without retrieval-augmented operational knowledge, on a local 7B model (Qwen2.5) and a frontier model (Claude Fable~5.1), using a development trace for design and three held-out traces for evaluation. Closing the loop naively is harmful: wiring the original alarms to actions loses against doing nothing. The bottleneck is alarm triage, not planning. A classical adaptive change test recovers 52--54\% of the delay caused by faults. With the 7B model, the retrieval-augmented planner recovers 20\%; with the frontier model the same design recovers 58\%, outperforming the best rule in 50 of 72 scenarios ($p=0.003$) with a pooled gain that is not significant overall but is large on intermittent faults, which defeat every rule. Used instead as a veto over the original detector, the frontier model over-interprets an artefact of how that detector batches alarms. Model capability matters, but it cannot repair a poorly designed Analyze--Knowledge interface.
