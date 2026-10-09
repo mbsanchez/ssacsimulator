@@ -23,7 +23,43 @@ import matplotlib.pyplot as plt  # noqa: E402
 HERE = Path(__file__).resolve().parent
 RESULTS = HERE.parent / "pysim" / "results"
 OUT = HERE / "figures"
-OUT.mkdir(exist_ok=True)
+LANG = "en"
+
+ES = {
+    "Rule: calibrated": "Regla: calibrada",
+    "Rule: adaptive": "Regla: adaptativa",
+    "Rule: adaptive + load veto": "Regla: adaptativa + veto por carga",
+    "Hybrid (Qwen 7B)": "Híbrido (Qwen 7B)",
+    "Hybrid (Fable 5.1)": "Híbrido (Fable 5.1)",
+    "Pooled recovery on held-out traces (95% stratified bootstrap CI)":
+        "Recuperación agregada, trazas reservadas (IC 95%, bootstrap)",
+    "False-alarm cost without faults (piece-min/h, mean of held-out traces)":
+        "Coste de falsas alarmas sin fallos (min-pieza/h, media de las trazas reservadas)",
+    "Pooled recovery with faults": "Recuperación agregada con fallos",
+    "Pooled recovery": "Recuperación agregada",
+    "Rule-based": "Reglas",
+    "Step": "Escalón", "Intermittent": "Intermitente", "Drift": "Deriva",
+}
+
+
+def T(text: str) -> str:
+    """Label in the current language (English is the source)."""
+    return ES.get(text, text) if LANG == "es" else text
+
+
+def num(v: float, fmt: str = "{:+.2f}") -> str:
+    out = fmt.format(v)
+    return out.replace(".", ",") if LANG == "es" else out
+
+
+def decimal_axes(ax, *axes):
+    """Decimal comma on numeric axes in Spanish."""
+    if LANG != "es":
+        return
+    from matplotlib.ticker import FuncFormatter
+    f = FuncFormatter(lambda x, _: f"{x:g}".replace(".", ","))
+    for a in axes:
+        (ax.xaxis if a == "x" else ax.yaxis).set_major_formatter(f)
 
 INK = "#0b0b0b"
 INK2 = "#52514e"
@@ -94,14 +130,15 @@ def fig_recovery(fault, keys):
         c, m = FAMILY[fam]
         ax.plot([lo, hi], [i, i], color=c, linewidth=1.4, solid_capstyle="round")
         ax.plot(v, i, marker=m, markersize=6.5, color=c, markeredgecolor="white", markeredgewidth=1.0)
-        ax.text(hi + 0.02, i, f"{v:+.2f}", va="center", fontsize=8, color=INK)
-    ax.set_yticks(range(len(data)), [d[3] for d in data], color=INK)
+        ax.text(hi + 0.02, i, num(v), va="center", fontsize=8, color=INK)
+    ax.set_yticks(range(len(data)), [T(d[3]) for d in data], color=INK)
     ax.axvline(0, color=INK2, linewidth=0.8)
-    ax.set_xlabel("Pooled recovery on held-out traces (95% stratified bootstrap CI)")
+    ax.set_xlabel(T("Pooled recovery on held-out traces (95% stratified bootstrap CI)"))
+    decimal_axes(ax, "x")
     ax.set_xlim(min(d[1] for d in data) - 0.05, max(d[2] for d in data) + 0.15)
     style(ax)
     fig.tight_layout()
-    fig.savefig(OUT / "fig_recovery.pdf")
+    fig.savefig(out_dir() / "fig_recovery.pdf")
     plt.close(fig)
 
 
@@ -116,20 +153,21 @@ def fig_tradeoff(fault, free, keys):
         x = sum(free[(t, p)] for t in traces) / len(traces)
         y = pooled(fault, keys, p)
         ax.plot(x, y, marker=m, markersize=7, color=c, markeredgecolor="white", markeredgewidth=1.0, linestyle="none")
-        ax.annotate(label, (x, y), xytext=offsets.get(p, (6, 3)), textcoords="offset points",
+        ax.annotate(T(label), (x, y), xytext=offsets.get(p, (6, 3)), textcoords="offset points",
                     fontsize=7.5, color=INK, va="center")
-    ax.set_xlabel("False-alarm cost without faults (piece-min/h, mean of held-out traces)")
-    ax.set_ylabel("Pooled recovery with faults")
+    ax.set_xlabel(T("False-alarm cost without faults (piece-min/h, mean of held-out traces)"))
+    ax.set_ylabel(T("Pooled recovery with faults"))
+    decimal_axes(ax, "y")
     ax.axhline(0, color=INK2, linewidth=0.8)
     ax.spines[["top", "right"]].set_visible(False)
     ax.grid(color=GRID, linewidth=0.6)
     ax.set_axisbelow(True)
     ax.set_xlim(-8, 230)
-    handles = [plt.Line2D([], [], marker=FAMILY[f][1], color=FAMILY[f][0], linestyle="none", markersize=6, label=l)
+    handles = [plt.Line2D([], [], marker=FAMILY[f][1], color=FAMILY[f][0], linestyle="none", markersize=6, label=T(l))
                for f, l in (("rules", "Rule-based"), ("qwen", "LLM: Qwen 2.5 7B"), ("fable", "LLM: Claude Fable 5.1"))]
     ax.legend(handles=handles, frameon=False, loc="lower right", fontsize=7.5)
     fig.tight_layout()
-    fig.savefig(OUT / "fig_tradeoff.pdf")
+    fig.savefig(out_dir() / "fig_tradeoff.pdf")
     plt.close(fig)
 
 
@@ -146,28 +184,40 @@ def fig_shapes(fault, keys):
             v = pooled(fault, ks, p)
             x = i + (j - 1) * (width + 0.02)
             ax.bar(x, v, width=width, color=c, edgecolor="white", linewidth=1.0)
-            ax.text(x, v + (0.03 if v >= 0 else -0.03), f"{v:+.2f}", ha="center",
+            ax.text(x, v + (0.03 if v >= 0 else -0.03), num(v), ha="center",
                     va="bottom" if v >= 0 else "top", fontsize=7, color=INK)
-    ax.set_xticks(range(len(SHAPES)), [s.capitalize() for s in SHAPES], color=INK)
+    ax.set_xticks(range(len(SHAPES)), [T(s.capitalize()) for s in SHAPES], color=INK)
     ax.axhline(0, color=INK2, linewidth=0.8)
-    ax.set_ylabel("Pooled recovery")
+    ax.set_ylabel(T("Pooled recovery"))
+    decimal_axes(ax, "y")
     ax.set_ylim(-0.85, 0.85)
     ax.spines[["top", "right"]].set_visible(False)
     ax.grid(axis="y", color=GRID, linewidth=0.6)
     ax.set_axisbelow(True)
-    handles = [plt.Rectangle((0, 0), 1, 1, color=FAMILY[f][0], label=l) for _, l, f in chosen]
+    handles = [plt.Rectangle((0, 0), 1, 1, color=FAMILY[f][0], label=T(l)) for _, l, f in chosen]
     ax.legend(handles=handles, frameon=False, loc="lower center", bbox_to_anchor=(0.5, 1.0), fontsize=7.5, ncol=3)
     fig.tight_layout()
-    fig.savefig(OUT / "fig_shapes.pdf")
+    fig.savefig(out_dir() / "fig_shapes.pdf")
     plt.close(fig)
 
 
+def out_dir() -> Path:
+    d = OUT / "es" if LANG == "es" else OUT
+    d.mkdir(parents=True, exist_ok=True)
+    return d
+
+
 def main():
+    import argparse
+    global LANG
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--lang", choices=["en", "es"], default="en")
+    LANG = ap.parse_args().lang
     fault, free, keys = load()
     fig_recovery(fault, keys)
     fig_tradeoff(fault, free, keys)
     fig_shapes(fault, keys)
-    for f in sorted(OUT.glob("*.pdf")):
+    for f in sorted(out_dir().glob("*.pdf")):
         print("wrote", f.relative_to(HERE))
 
 
