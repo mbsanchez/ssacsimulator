@@ -192,7 +192,7 @@ def veto_section() -> list[str]:
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--a", default="llm_c2:fable-5.1")
-    ap.add_argument("--b", nargs="+", default=["rules_adapt_ctx", "rules_adapt", "rules_cal", "llm_c2"])
+    ap.add_argument("--b", nargs="+", default=["rules_adapt_ctx", "rules_adapt", "rules_cal", "llm_c2", "llm_c1:fable-5.1"])
     ap.add_argument("--main-b", default="rules_adapt_ctx", help="comparison broken down by subgroup")
     args = ap.parse_args()
 

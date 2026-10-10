@@ -76,6 +76,7 @@ PLANNERS = [  # (row name, label, family)
     ("llm_c1", "C1 (Qwen 7B)", "qwen"),
     ("llm_c2", "C2 RAG (Qwen 7B)", "qwen"),
     ("hybrid", "Hybrid (Qwen 7B)", "qwen"),
+    ("llm_c1:fable-5.1", "C1 (Fable 5.1)", "fable"),
     ("llm_c2:fable-5.1", "C2 RAG (Fable 5.1)", "fable"),
     ("hybrid:fable-5.1", "Hybrid (Fable 5.1)", "fable"),
 ]
@@ -147,7 +148,7 @@ def fig_tradeoff(fault, free, keys):
     fig, ax = plt.subplots(figsize=(6.3, 3.4))
     offsets = {"rules_adapt": (6, -10), "rules_adapt_ctx": (6, 4), "rules_cal": (6, 3),
                "llm_c2:fable-5.1": (6, 3), "hybrid": (6, -3), "hybrid:fable-5.1": (6, 3),
-               "llm_c1": (6, -3), "llm_c2": (6, 3)}
+               "llm_c1": (6, -3), "llm_c2": (6, 3), "llm_c1:fable-5.1": (6, -6)}
     for p, label, fam in PLANNERS:
         c, m = FAMILY[fam]
         x = sum(free[(t, p)] for t in traces) / len(traces)

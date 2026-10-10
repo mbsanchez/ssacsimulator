@@ -9,7 +9,8 @@ Escenarios con fallo de las trazas reservadas, pareados por (traza, estación, f
 | llm_c2:fable-5.1 vs rules_adapt_ctx | 72 | 50 | 22 | 0.00141 | 0.00141 | +0.43 | +0.043 | [-0.013, +0.104] |
 | llm_c2:fable-5.1 vs rules_adapt | 72 | 53 | 19 | 8.96e-05 | 0.000179 | +0.53 | +0.062 | [+0.006, +0.125] |
 | llm_c2:fable-5.1 vs rules_cal | 72 | 63 | 9 | 2.57e-06 | 7.7e-06 | +0.64 | +0.132 | [+0.087, +0.179] |
-| llm_c2:fable-5.1 vs llm_c2 | 72 | 69 | 3 | 3.67e-13 | 1.47e-12 | +0.99 | +0.378 | [+0.309, +0.465] |
+| llm_c2:fable-5.1 vs llm_c2 | 72 | 69 | 3 | 3.67e-13 | 1.83e-12 | +0.99 | +0.378 | [+0.309, +0.465] |
+| llm_c2:fable-5.1 vs llm_c1:fable-5.1 | 72 | 55 | 17 | 3.8e-08 | 1.52e-07 | +0.75 | +0.581 | [+0.508, +0.637] |
 
 ## Por subgrupo, frente a `rules_adapt_ctx`
 
@@ -54,6 +55,7 @@ Latencia desde el inicio del fallo. Medianas marginales: sobre todos los escenar
 | llm_c2:fable-5.1 vs rules_adapt | 57 | 28 | 25 | 402 / 3,048 | -3,150 / +0 / +66 | 0.172 | 402 (57) | 3,090 (72) |
 | llm_c2:fable-5.1 vs rules_cal | 57 | 24 | 31 | 402 / 372 | -66 / +18 / +42 | 0.0872 | 402 (57) | 222 (72) |
 | llm_c2:fable-5.1 vs llm_c2 | 57 | 6 | 46 | 402 / 330 | -12 / +96 / +114 | 2.46e-09 | 402 (57) | 360 (72) |
+| llm_c2:fable-5.1 vs llm_c1:fable-5.1 | 0 | 0 | 0 | nan / nan | +nan / +nan / +nan | nan | 402 (57) | nan (0) |
 
 ## Aciertos sobre la estación averiada
 
@@ -87,5 +89,6 @@ Veto: llamada en la que al menos una estación elegible no recibe acción. Estri
 | hybrid | 1215 | 816 (67%) |
 | hybrid:fable-5.1 | 1437 | 895 (62%) |
 | llm_c1 | 7326 | 6381 (87%) |
+| llm_c1:fable-5.1 | 8394 | 7121 (85%) |
 | llm_c2 | 5224 | 4615 (88%) |
 | llm_c2:fable-5.1 | 7869 | 6147 (78%) |
