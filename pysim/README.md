@@ -203,6 +203,8 @@ salir.
 | `ssac/metrics.py` | Retraso en exceso por pieza frente a una corrida de referencia sin fallo. |
 | `experiment.py` | Runner: referencia, no-acción y planificadores, por escenario. |
 | `sweep.py` | Barrido de sensibilidad en paralelo; escribe `results/`. |
+| `rule_sweep.py` | Solo reglas, tras la revisión: ingenuo con 240 min de espera y rejilla de hiperparámetros (ventana, α, historia) elegida en desarrollo y evaluada en reservadas; escribe `results/rule_sweep*.{csv,md}` (~11 min). |
+| `trace_bootstrap.py` | Incertidumbre con la traza como conglomerado (bootstrap exacto, de dos niveles y dejando una traza fuera) sobre `llm_sweep_rows.csv`; escribe `results/trace_bootstrap.md`. |
 
 ### Supuestos del modelo de efectos
 
