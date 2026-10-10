@@ -76,16 +76,16 @@ Todo el código, los scripts de procesamiento de datos, los prompts, las respues
 \section{Antecedentes y trabajo relacionado}
 \label{sec:related}
 
-\paragraph{Computación autonómica y sistemas autoadaptativos.}
+\paragraph{Computación autonómica y sistemas autoadaptativos}
 El modelo de referencia MAPE-K~\cite{kephart2003vision} estructura un sistema autogestionado como un bucle de realimentación en torno a un recurso gestionado. La ingeniería de esos bucles es el objeto de la literatura sobre sistemas autoadaptativos~\cite{weyns2020introduction}, que subraya que la fase Analyze debe separar el cambio real del ruido antes de planificar cualquier adaptación. Recientemente se han estudiado los LLM como componentes de esos bucles: una revisión del estado del arte y hoja de ruta organiza sus usos potenciales en torno a las funciones de MAPE-K~\cite{li2024genai,li2024exploring}; se han integrado agentes basados en LLM en sistemas multiagente basados en MAPE-K~\cite{nascimento2023selfadaptive}; y MAPER extiende MAPE-K con un componente de razonamiento basado en LLM para manejar situaciones imprevistas en tiempo de ejecución~\cite{alves2026maper}. Nuestro estudio se diferencia en que sitúa un LLM dentro del bucle de un sistema industrial cuyo detector heredamos sin cambios, y en que lo mide frente a baselines fuertes sin LLM sobre datos reservados.
 
-\paragraph{Propiedades self-* en la fabricación.}
+\paragraph{Propiedades self-* en la fabricación}
 Nuestro trabajo previo integró sistemas multiagente, orientación a servicios y computación autonómica para la coordinación de procesos en la Industria~4.0~\cite{sanchez2020selfstar,sanchez2020jii,sanchez2020survey}. El presente artículo reexamina empíricamente esa arquitectura en lugar de proponer una nueva.
 
-\paragraph{Detección de cambios.}
+\paragraph{Detección de cambios}
 Detectar un cambio en la tasa de un flujo de eventos es un problema clásico~\cite{basseville1993detection}. Nuestros baselines basados en reglas más fuertes son instancias sencillas: un test de Poisson frente a una tasa base estática y un test frente al historial reciente del mismo flujo.
 
-\paragraph{LLM y recuperación en la toma de decisiones industriales.}
+\paragraph{LLM y recuperación en la toma de decisiones industriales}
 RAG condiciona un modelo de lenguaje con documentos recuperados para cada consulta~\cite{lewis2020rag}. En la fabricación, se han combinado agentes LLM con gemelos digitales para planificar y controlar la producción modular~\cite{xia2023towards} y se han aplicado a la planificación y programación avanzadas~\cite{li2026a4ps}, y una revisión reciente de los LLM para el diagnóstico de fallos en la fabricación inteligente cubre, entre otras funciones, la fusión de conocimiento industrial con recuperación aumentada~\cite{thuan2026review}. Nuestro diseño incluye deliberadamente un baseline estadístico fuerte y reglas de control que aíslan lo que el LLM aporta más allá de ellos.
 
 % =====================================================================
@@ -176,23 +176,23 @@ Para cada alarma con estaciones accionables, el LLM debe devolver, para cada una
   \item \textbf{Híbrido}: el test adaptativo de detección de cambios selecciona las estaciones; el LLM, con el conocimiento de C2, confirma o veta y elige la acción. Una estación vetada no se vuelve a examinar durante 120~min.
 \end{itemize}
 
-\paragraph{Modelos.}
+\paragraph{Modelos}
 Usamos Qwen2.5-7B-Instruct~\cite{qwen2024}, cuantizado a 4 bits y servido localmente con Ollama~\cite{ollama} a temperatura~0; y Claude Fable~5.1 (Anthropic), accedido mediante el Claude Agent SDK~\cite{anthropic2026agentsdk} con el esfuerzo en \emph{low}, sin herramientas y sin fuentes de contexto externas. El modelo de frontera no expone un ajuste de temperatura, por lo que sus ejecuciones no son reproducibles bit a bit; todas las respuestas de ambos modelos se almacenan, lo que hace que todos los experimentos puedan volver a reproducirse.
 
 % =====================================================================
 \section{Protocolo experimental}
 \label{sec:protocol}
 
-\paragraph{Escenarios.}
+\paragraph{Escenarios}
 Se inyecta un fallo de factor $k=3$ 600~min después del inicio de una traza en una de ocho estaciones, cuatro con gemela (L0\_S2, L0\_S4, L0\_S6, L3\_S35) y cuatro sin ella (L0\_S1, L0\_S8, L3\_S29, L3\_S33), todas con tiempos de proceso observables en cada traza, con una de las tres formas de fallo. Cada traza tiene además una ejecución sin fallos. Las reparaciones duran 60~min, $\alpha=0{,}5$, y el mantenimiento funciona en modo contingencia salvo que se indique lo contrario.
 
-\paragraph{Trazas de desarrollo y reservadas.}
+\paragraph{Trazas de desarrollo y reservadas}
 Los prompts y el contexto recuperado se diseñaron y revisaron solo sobre la primera traza, con cuatro casos de desarrollo; cada versión y sus resultados quedaron registrados. Las otras tres trazas están reservadas: sobre ellas los prompts se ejecutaron una vez, congelados. Las reglas calibradas aprenden siempre sus tasas base en una traza distinta de aquella en la que se evalúan.
 
-\paragraph{Métricas.}
+\paragraph{Métricas}
 Cada ejecución reproduce la misma traza, de modo que cada pieza se compara consigo misma en una ejecución de referencia sin fallos. El \emph{retraso en exceso} de una ejecución es la suma, sobre las piezas, de su tiempo de vida adicional. La \emph{recuperación agregada} de un planificador sobre un conjunto de escenarios es $1-\sum \text{exceso(planificador)} / \sum \text{exceso(no hacer nada)}$: 1 elimina el coste de los fallos; 0 no es mejor que no hacer nada; los valores negativos significan que las propias acciones del planificador cuestan más que los fallos. El \emph{coste de las falsas alarmas} es el retraso en exceso por hora en las ejecuciones sin fallos. Un \emph{acierto específico} cuenta una acción sobre la estación averiada solo si el mismo planificador, en la misma traza sin el fallo, no actuó sobre esa estación en un margen de $\pm$120~min; excluye las reparaciones de rutina que coinciden por casualidad con el fallo.
 
-\paragraph{Estadística.}
+\paragraph{Estadística}
 Los planificadores se comparan sobre escenarios pareados con la prueba de rangos con signo de Wilcoxon sobre el retraso en exceso~\cite{wilcoxon1945}, con ajuste de Holm~\cite{holm1979}, y con intervalos bootstrap al 95\,\%~\cite{efron1993bootstrap} para la diferencia de recuperación agregada, remuestreando los escenarios dentro de su traza (10\,000 remuestreos).
 
 % =====================================================================
@@ -316,19 +316,19 @@ El híbrido se comporta al revés con el modelo de frontera: se vuelve extremada
 \section{Discusión}
 \label{sec:discussion}
 
-\paragraph{El cuello de botella es el triaje, no la planificación.}
+\paragraph{El cuello de botella es el triaje, no la planificación}
 Una vez que una estación se juzga correctamente como averiada, basta una regla sencilla (desviar a una gemela libre, reparar). Todas las diferencias que medimos entre planificadores provienen de decidir qué alarmas merecen una acción. Cerrar el bucle del sistema de 2020 sin abordar esto habría empeorado la línea.
 
-\paragraph{La capacidad importa donde el LLM hace el triaje.}
+\paragraph{La capacidad importa donde el LLM hace el triaje}
 El mismo diseño con recuperación aumentada pasa de $+0{,}20$ a $+0{,}58$ al sustituir el modelo de 7B por un modelo de frontera. Su ventaja sobre un test clásico de detección de cambios se concentra en los fallos intermitentes, cuyo patrón de encendido y apagado diluye las tasas de alarma pero deja un historial reconocible de alarmas y reparaciones. En los fallos en escalón y deriva, un test estadístico bien diseñado es igual de bueno, más barato y totalmente reproducible.
 
-\paragraph{Un modelo capaz no puede reparar una interfaz Analyze--Knowledge deficiente.}
+\paragraph{Un modelo capaz no puede reparar una interfaz Analyze--Knowledge deficiente}
 Como veto sobre el detector heredado, el modelo de frontera fue menos útil que el de 7B, porque razonó correctamente sobre una evidencia cuya estructura producía el propio detector. En términos de MAPE-K, la información que pasa de Analyze a Plan (alarmas agrupadas) descarta precisamente la evidencia por estación que necesita el planificador. La implicación directa para la arquitectura es rediseñar esa interfaz, pasando evidencia por estación en lugar de alarmas agrupadas, antes de invertir en planificadores más capaces.
 
-\paragraph{Los conjuntos de desarrollo engañan.}
+\paragraph{Los conjuntos de desarrollo engañan}
 En la traza de desarrollo, tres conclusiones fueron erróneas: el planificador de 7B con recuperación aumentada parecía superar a la regla calibrada, el híbrido parecía dominar a su control y el modelo de frontera parecía equivalente al de 7B. Solo las trazas reservadas las invirtieron. Una sola traza con cuatro casos es demasiado pequeña para seleccionar diseños, y los controladores basados en LLM deberían evaluarse con datos que no se usaron para escribir sus prompts.
 
-\paragraph{Amenazas a la validez.}
+\paragraph{Amenazas a la validez}
 \emph{De constructo}: los fallos son sintéticos y el modelo de efectos es aditivo y guiado por la traza, sin colas; sus parámetros no verificables se barrieron, y las conclusiones sobre el triaje se mantienen en todo el rango barrido, pero las recuperaciones absolutas dependen de ellos. La recuperación se mide solo en tiempo de producción, sin ponderación económica. \emph{Interna}: la métrica de acierto específico depende de una ventana de $\pm$120~min; el modelo de frontera no es reproducible bit a bit, aunque todas sus respuestas están almacenadas. \emph{Externa}: una sola línea de producción, un solo conjunto de datos y un solo detector heredado; dos modelos de lenguaje en los extremos de capacidad, sin tamaños intermedios. \emph{Estadística}: los escenarios de una misma traza no son independientes; remuestreamos dentro de cada traza, pero tres trazas reservadas siguen siendo un número pequeño de grupos.
 
 % =====================================================================

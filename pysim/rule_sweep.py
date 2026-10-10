@@ -322,12 +322,12 @@ def summarize() -> None:
         # paired comparison of C2 on Fable against re-tuned rules
         if "llm_c2:fable-5.1" in llm:
             import random
-            from scipy.stats import wilcoxon
+            from scipy.stats import rankdata, wilcoxon
             fab = {(r["trace"], r["station"], r["shape"]): r["excess"] for r in llm["llm_c2:fable-5.1"]}
             out += ["\n## C2 con Fable 5.1 frente a reglas reajustadas (emparejado)\n",
                     "Δ = recuperación(Fable) − recuperación(regla), IC 95 % bootstrap estratificado por traza "
                     "(10 000, semilla 0, como `stats.py`); Wilcoxon sobre el exceso por escenario, sin ajuste.\n",
-                    "| Regla | Configuración | Formas | Δ | IC 95 % | Fable mejor en | p |", "|---|---|---|---|---|---|---|"]
+                    "| Regla | Configuración | Formas | Δ | IC 95 % | Fable mejor en | p | r |", "|---|---|---|---|---|---|---|---|"]
             targets = []
             for p in ("rules_adapt", "rules_adapt_ctx"):
                 cfgs = sorted(c for (pp, c) in by if pp == p)
@@ -345,9 +345,12 @@ def summarize() -> None:
                     rng = random.Random(0)
                     boot = sorted(d([rng.choice(strata[t]) for t in HELD_OUT for _ in strata[t]]) for _ in range(10_000))
                     better = sum(fab[k] < ru[k] for k in ks)
-                    pv = wilcoxon([fab[k] - ru[k] for k in ks]).pvalue
+                    dd = [fab[k] - ru[k] for k in ks if fab[k] != ru[k]]
+                    pv = wilcoxon(dd).pvalue
+                    rk = rankdata([abs(x) for x in dd])
+                    rb = (2 * sum(r_ for r_, x in zip(rk, dd) if x < 0) - sum(rk)) / sum(rk)
                     out.append(f"| {p} | {kind} `{c}` | {sname} | {d(ks):+.3f} | [{boot[249]:+.3f}, {boot[9749]:+.3f}] "
-                               f"| {better}/{len(ks)} | {pv:.3f} |")
+                               f"| {better}/{len(ks)} | {pv:.3f} | {rb:+.2f} |")
 
     SUMMARY.write_text("\n".join(out) + "\n")
     print("\n".join(out))

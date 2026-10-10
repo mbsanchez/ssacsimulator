@@ -182,15 +182,17 @@ def fig_shapes(fault, keys):
         for i, s in enumerate(SHAPES):
             ks = [k for k in keys if k[2] == s]
             v = pooled(fault, ks, p)
+            lo, hi = bootstrap_ci(fault, ks, p)
             x = i + (j - 1) * (width + 0.02)
             ax.bar(x, v, width=width, color=c, edgecolor="white", linewidth=1.0)
-            ax.text(x, v + (0.03 if v >= 0 else -0.03), num(v), ha="center",
+            ax.plot([x, x], [lo, hi], color=INK2, linewidth=0.9)
+            ax.text(x, (hi + 0.03) if v >= 0 else (lo - 0.03), num(v), ha="center",
                     va="bottom" if v >= 0 else "top", fontsize=7, color=INK)
     ax.set_xticks(range(len(SHAPES)), [T(s.capitalize()) for s in SHAPES], color=INK)
     ax.axhline(0, color=INK2, linewidth=0.8)
     ax.set_ylabel(T("Pooled recovery"))
     decimal_axes(ax, "y")
-    ax.set_ylim(-0.85, 0.85)
+    ax.set_ylim(-1.45, 1.05)
     ax.spines[["top", "right"]].set_visible(False)
     ax.grid(axis="y", color=GRID, linewidth=0.6)
     ax.set_axisbelow(True)
