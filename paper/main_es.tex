@@ -70,7 +70,7 @@ Nuestras contribuciones son:
   \item Evidencia de que el cuello de botella para cerrar el bucle es el triaje de alarmas y no la planificación; de que, para el triaje con recuperación aumentada, un modelo de frontera iguala a un test estadístico bien ajustado donde un modelo de 7B no lo consigue, y el conocimiento recuperado es lo que le permite actuar; y de que la estructura de las alarmas que emite el detector condiciona cómo las veta un modelo capaz (sección~\ref{sec:discussion}).
 \end{enumerate}
 
-Todo el código, los scripts de procesamiento de datos, los prompts, las respuestas almacenadas de los modelos y los resultados están disponibles (sección~\ref{sec:availability}).
+Todo el código, los scripts de procesamiento de datos, los prompts, cada decisión de los modelos con la razón que dieron y todos los resultados están disponibles (sección~\ref{sec:availability}).
 
 % =====================================================================
 \section{Antecedentes y trabajo relacionado}
@@ -177,7 +177,7 @@ Para cada alarma con estaciones accionables, el LLM debe devolver, para cada una
 \end{itemize}
 
 \paragraph{Modelos}
-Usamos Qwen2.5-7B-Instruct~\cite{qwen2024}, cuantizado a 4 bits y servido localmente con Ollama~\cite{ollama} a temperatura~0; y Claude Fable~5.1 (Anthropic), accedido mediante el Claude Agent SDK~\cite{anthropic2026agentsdk} con el esfuerzo en \emph{low}, sin herramientas y sin fuentes de contexto externas. El modelo de frontera no expone un ajuste de temperatura, por lo que sus ejecuciones no son reproducibles bit a bit. Todas las peticiones y respuestas de ambos modelos se almacenan, indexadas por la petición completa; las peticiones idénticas, frecuentes porque el tramo de la traza anterior al fallo produce los mismos estados en todos los escenarios, se sirven desde ese almacén (el 78\,\% de las 7\,869 llamadas de C2 sobre Fable~5.1). Las respuestas almacenadas permiten reproducir cada decisión publicada, pero cada una es una única muestra del modelo: no estimamos la variabilidad entre ejecuciones.
+Usamos Qwen2.5-7B-Instruct~\cite{qwen2024}, cuantizado a 4 bits y servido localmente con Ollama~\cite{ollama} a temperatura~0; y Claude Fable~5.1 (Anthropic), accedido mediante el Claude Agent SDK~\cite{anthropic2026agentsdk} con el esfuerzo en \emph{low}, sin herramientas y sin fuentes de contexto externas. El modelo de frontera no expone un ajuste de temperatura, por lo que sus ejecuciones no son reproducibles bit a bit. Todas las peticiones y respuestas de ambos modelos se almacenan, indexadas por la petición completa; las peticiones idénticas, frecuentes porque el tramo de la traza anterior al fallo produce los mismos estados en todos los escenarios, se sirven desde ese almacén (el 78\,\% de las 7\,869 llamadas de C2 sobre Fable~5.1). El almacén nos permite reproducir cada decisión publicada, y el repositorio publica cada decisión con la razón que dio el modelo, pero cada una es una única muestra del modelo: no estimamos la variabilidad entre ejecuciones.
 
 % =====================================================================
 \section{Protocolo experimental}
@@ -356,7 +356,7 @@ Cerramos el bucle autonómico de una arquitectura de fabricación autocoordinada
 % =====================================================================
 \section*{Disponibilidad de datos y código}
 \label{sec:availability}
-El simulador sin interfaz gráfica, los planificadores, los prompts, el registro de desarrollo, las respuestas almacenadas de los modelos, los resultados y los scripts que producen cada tabla y figura están disponibles en \todo{URL del repositorio}. El simulador usa solo la biblioteca estándar de Python; la estadística y las figuras usan además SciPy y matplotlib. El conjunto de datos de Bosch es público~\cite{bosch2016kaggle}.
+El simulador sin interfaz gráfica, los planificadores, los prompts, el registro de desarrollo, cada decisión de los modelos con la razón que dieron, los resultados y los scripts que producen cada tabla y figura están disponibles en \url{https://github.com/mbsanchez/ssacsimulator}. El simulador usa solo la biblioteca estándar de Python; la estadística y las figuras usan además SciPy y matplotlib. El conjunto de datos de Bosch es público~\cite{bosch2016kaggle}; los ficheros derivados de él (modelo de proceso y trazas de eventos) no se redistribuyen, y el repositorio incluye los scripts que los producen y sus sumas de verificación.
 
 \section*{Declaración de contribución de autoría (CRediT)}
 \textbf{Manuel S\'anchez:} conceptualización, metodología, investigación, visualización, redacción -- borrador original. \textbf{Ernesto Exposito:} supervisión, redacción -- revisión y edición.

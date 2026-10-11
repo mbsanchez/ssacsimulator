@@ -63,7 +63,7 @@ Our contributions are:
   \item Evidence that the bottleneck of closing the loop is alarm triage rather than planning; that, for retrieval-augmented triage, a frontier model matches a well-tuned statistical test where a 7B model does not, and retrieved knowledge is what lets it act at all; and that the structure of the alarms emitted by the detector shapes how a capable model vetoes them (Section~\ref{sec:discussion}).
 \end{enumerate}
 
-All code, data-processing scripts, prompts, stored model responses and results are available (Section~\ref{sec:availability}).
+All code, data-processing scripts, prompts, every model decision with its stated reason, and all results are available (Section~\ref{sec:availability}).
 
 % =====================================================================
 \section{Background and related work}
@@ -170,7 +170,7 @@ For every alarm with actionable stations, the LLM must return, for each of them,
 \end{itemize}
 
 \paragraph{Models}
-We use Qwen2.5-7B-Instruct~\cite{qwen2024}, 4-bit quantised, served locally with Ollama~\cite{ollama} at temperature~0; and Claude Fable~5.1 (Anthropic), accessed through the Claude Agent SDK~\cite{anthropic2026agentsdk} with effort set to \emph{low}, no tools and no external context sources. The frontier model does not expose a temperature setting, so its runs are not bit-reproducible. Every request and response of both models is stored, keyed by the full request; identical requests, frequent because the stretch of a trace before the fault yields the same states in every scenario, are served from this store (78\% of the 7\,869 calls of C2 on Fable~5.1). The stored responses make every reported decision replayable, but each is a single sample of the model: we did not estimate run-to-run variability.
+We use Qwen2.5-7B-Instruct~\cite{qwen2024}, 4-bit quantised, served locally with Ollama~\cite{ollama} at temperature~0; and Claude Fable~5.1 (Anthropic), accessed through the Claude Agent SDK~\cite{anthropic2026agentsdk} with effort set to \emph{low}, no tools and no external context sources. The frontier model does not expose a temperature setting, so its runs are not bit-reproducible. Every request and response of both models is stored, keyed by the full request; identical requests, frequent because the stretch of a trace before the fault yields the same states in every scenario, are served from this store (78\% of the 7\,869 calls of C2 on Fable~5.1). The store lets us replay every reported decision, and the repository publishes each decision with the model's stated reason, but each is a single sample of the model: we did not estimate run-to-run variability.
 
 % =====================================================================
 \section{Experimental protocol}
@@ -347,7 +347,7 @@ We closed the autonomic loop of a self-coordinated manufacturing architecture th
 % =====================================================================
 \section*{Data and code availability}
 \label{sec:availability}
-The headless simulator, planners, prompts, development log, stored model responses, results and the scripts that produce every table and figure are available at \todo{repository URL}. The simulator uses the Python standard library only; the statistics and figures additionally use SciPy and matplotlib. The Bosch dataset is publicly available~\cite{bosch2016kaggle}.
+The headless simulator, planners, prompts, development log, every model decision with its stated reason, the results and the scripts that produce every table and figure are available at \url{https://github.com/mbsanchez/ssacsimulator}. The simulator uses the Python standard library only; the statistics and figures additionally use SciPy and matplotlib. The Bosch dataset is publicly available~\cite{bosch2016kaggle}; the files derived from it (process model and event traces) are not redistributed, and the repository gives the scripts that produce them and their checksums.
 
 \section*{CRediT authorship contribution statement}
 \textbf{Manuel S\'anchez:} Conceptualization, Methodology, Investigation, Visualization, Writing -- original draft. \textbf{Ernesto Exposito:} Supervision, Writing -- review \& editing.
