@@ -101,10 +101,16 @@ class EffectModel:
     congestion_alpha: float = 0.5
     maintenance_mode: str = "contingency"
     contingency_factor: float = 1.5
+    # Which faults a completed repair clears: "begun_before_end" (any fault
+    # that started before the repair ended, the original rule) or
+    # "active_at_start" (only faults already active when the repair began).
+    repair_clears: str = "begun_before_end"
 
     def __post_init__(self) -> None:
         if self.maintenance_mode not in MAINTENANCE_MODES:
             raise ValueError(f"unknown maintenance mode {self.maintenance_mode!r}")
+        if self.repair_clears not in ("begun_before_end", "active_at_start"):
+            raise ValueError(f"unknown repair_clears {self.repair_clears!r}")
 
 
 @dataclass
@@ -178,9 +184,14 @@ class InterventionState:
         for f in self.faults:
             if f.station != station or not f.scheduled(t_min):
                 continue
-            repaired = any(
-                f.start_min < end <= t_min for _, end in self.repairs.get(station, [])
-            )
+            if self.effects.repair_clears == "active_at_start":
+                repaired = any(
+                    f.start_min < start and end <= t_min for start, end in self.repairs.get(station, [])
+                )
+            else:
+                repaired = any(
+                    f.start_min < end <= t_min for _, end in self.repairs.get(station, [])
+                )
             if not repaired:
                 k *= f.factor_at(t_min)
         return k
