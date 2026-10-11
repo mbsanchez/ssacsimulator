@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
-"""Final evaluation of the LLM planners on the HELD-OUT traces.
+"""Final evaluation of the LLM planners on the HELD-OUT traces, design v2.
+
+Design v2 (results/dev_log.md, 2026-10-11): 3 fault onsets per scenario
+(ssac/onsets.py), a repair clears only faults active when it starts, and every
+fault run stops 24 h after the onset; recovery is measured within that horizon.
 
 The prompt is frozen before this runs (see results/dev_log.md); trace 0-100m,
 used for development, is excluded. For every scenario it runs, on the same
@@ -32,6 +36,7 @@ from ssac.intervention import Fault
 from ssac.llm import OllamaClient
 from ssac.llm_planner import PROMPT_VERSION, LLMPlanner
 from ssac.metrics import outcome
+from ssac.onsets import HORIZON_MIN, HORIZONS_MIN, onsets
 from ssac.hybrid_planner import HybridPlanner
 from ssac.planning import (AdaptiveRulePlanner, CalibratedRulePlanner, ContextAdaptiveRulePlanner, NoOpPlanner,
                            TwinOnlyRulePlanner)
@@ -57,24 +62,34 @@ SHAPES = ["step", "intermittent", "drift"]
 RULES = ["noop", "rules_cal", "rules_adapt", "rules_twin", "rules_adapt_ctx"]
 LLMS = ["llm_c2", "llm_c1", "hybrid"]
 LLM_VERSIONS = {"llm_c1": PROMPT_VERSION, "llm_c2": PROMPT_VERSION, "hybrid": "v2+h1"}
-FAULT_OFFSET_MIN = 600.0
+# --analyze processing: the per-station detector (results/detector_choice.json) and prompt v3
+ANALYZE = "legacy"
+PROCESSING_PARAMS: dict = {}
 
-ROW_FIELDS = ["trace", "station", "shape", "planner", "model", "prompt_version", "excess_delay_min",
+ROW_FIELDS = ["trace", "station", "shape", "onset_idx", "planner", "model", "prompt_version", "excess_delay_min",
+              "excess_h8_min", "excess_h24_min",
               "maintenances_on_fault", "maintenances_false", "first_action_latency_min", "pieces_rerouted",
               "maintenance_wait_min", "congestion_extra_min", "span_h", "calls", "cache_hits",
               "seconds", "finished", "fault_start_min", "maint_log"]
-CALL_FIELDS = ["trace", "station", "shape", "planner", "t_min", "eligible", "verdicts", "acted_on",
+CALL_FIELDS = ["trace", "station", "shape", "onset_idx", "planner", "t_min", "eligible", "verdicts", "acted_on",
                "reason", "problems", "cached", "latency_s"]
 
 
 def scenarios(limit: int | None):
     out = []
     for trace in HELD_OUT:
-        out.append((trace, "", ""))                       # fault-free
+        data = SimulationData.load(ROOT / trace)
+        t_first, t_last = data.events[0].start_time, data.events[-1].start_time
+        out.append((trace, "", "", "", None))                       # fault-free, whole trace
         for station in STATIONS_TWIN + STATIONS_NO_TWIN:
             for shape in SHAPES:
-                out.append((trace, station, shape))
+                for k, onset in enumerate(onsets(trace, station, shape, t_first, t_last)):
+                    out.append((trace, station, shape, k, onset))
     return out[:limit] if limit else out
+
+
+def llm_kw(name: str) -> dict:
+    return {"analyze": ANALYZE, "prompt_version": LLM_VERSIONS[name]} if ANALYZE == "processing" else {}
 
 
 def label(name: str, tag: str) -> str:
@@ -91,7 +106,7 @@ def load_done(model: str, tag: str) -> set[tuple]:
         for r in csv.DictReader(fh):
             base = r["planner"].split(":")[0]
             if base in RULES or (r["model"] == model and r["prompt_version"] == LLM_VERSIONS.get(base)):
-                done.add((r["trace"], r["station"], r["shape"], r["planner"]))
+                done.add((r["trace"], r["station"], r["shape"], r["onset_idx"], r["planner"]))
         return done
 
 
@@ -115,10 +130,10 @@ def run(args) -> None:
     todo = scenarios(args.limit)
     # Phase 1: rules + C2 on every scenario; phase 2: C1. If the night runs
     # out, the main comparison (C2 vs. rules) is complete and C1 resumes later.
-    if args.backend == "agent-sdk":   # scarce quota: the hybrid first, then C2, then C1
+    if args.backend == "agent-sdk":   # scarce quota: C2 (the main comparison) first, then the hybrid, then C1
         phases = [[p for p in RULES if p in args.planners],
-                  [p for p in ["hybrid"] if p in args.planners],
                   [p for p in ["llm_c2"] if p in args.planners],
+                  [p for p in ["hybrid"] if p in args.planners],
                   [p for p in ["llm_c1"] if p in args.planners]]
     else:
         phases = [[p for p in RULES + ["llm_c2"] if p in args.planners],
@@ -132,20 +147,21 @@ def run(args) -> None:
     t_start = time.perf_counter()
     finished = 0
     for phase in phases:
-        for trace, station, shape in todo:
+        for trace, station, shape, k, onset in todo:
             if trace not in cache:
                 data = SimulationData.load(ROOT / trace)
                 m, _ = BusinessProcessModel.load(MODEL)
                 ref = SimulationEngine(m, data)
                 ref.run()
-                rates = alarm_rates(MODEL, SimulationData.load(ROOT / HELD_OUT[trace]), ("legacy",))
+                rates = alarm_rates(MODEL, SimulationData.load(ROOT / HELD_OUT[trace]), (ANALYZE,),
+                                    processing_params=PROCESSING_PARAMS or None)
                 cache = {trace: (data, dict(ref.lifetimes), rates)}
             data, reference, rates = cache[trace]
             span_h = (data.events[-1].start_time - data.events[0].start_time) / 60.0
-            faults = [] if not station else [Fault(station, 3.0, data.events[0].start_time + FAULT_OFFSET_MIN, shape=shape)]
+            faults = [] if not station else [Fault(station, 3.0, onset, shape=shape)]
 
             for name in phase:
-                if (trace, station, shape, label(name, args.tag)) in done:
+                if (trace, station, shape, str(k), label(name, args.tag)) in done:
                     continue
                 planner = {
                     "noop": lambda: NoOpPlanner(),
@@ -153,22 +169,31 @@ def run(args) -> None:
                     "rules_adapt": lambda: AdaptiveRulePlanner(),
                     "rules_twin": lambda: TwinOnlyRulePlanner(),
                     "rules_adapt_ctx": lambda: ContextAdaptiveRulePlanner(),
-                    "hybrid": lambda: HybridPlanner(client, baseline_per_min=rates),
-                    "llm_c1": lambda: LLMPlanner(client),
-                    "llm_c2": lambda: RAGPlanner(client, baseline_per_min=rates),
+                    "hybrid": lambda: HybridPlanner(client, baseline_per_min=rates, **llm_kw("hybrid")),
+                    "llm_c1": lambda: LLMPlanner(client, **llm_kw("llm_c1")),
+                    "llm_c2": lambda: RAGPlanner(client, baseline_per_min=rates, **llm_kw("llm_c2")),
                 }[name]()
                 m, _ = BusinessProcessModel.load(MODEL)
-                eng = SimulationEngine(m, data, faults=faults, planner=planner)
+                eng = SimulationEngine(m, data, faults=faults, planner=planner, detectors=(ANALYZE,),
+                                       processing_params=PROCESSING_PARAMS or None)
                 h0 = client.stats["cache_hits"]
                 t0 = time.perf_counter()
-                eng.run()
-                o = outcome(name, eng, reference, faults)
+                eng.run(until_min=onset + HORIZON_MIN if station else None)
+                o = outcome(name, eng, reference, faults, horizons_min=HORIZONS_MIN)
+                hx = o.excess_h or {}
                 is_llm = isinstance(planner, LLMPlanner)
                 append(ROWS, ROW_FIELDS, [{
-                    "trace": trace, "station": station, "shape": shape, "planner": label(name, args.tag),
+                    "trace": trace, "station": station, "shape": shape, "onset_idx": k,
+                    "planner": label(name, args.tag),
                     "model": args.model if is_llm else "", "prompt_version": planner.prompt_version if is_llm else "",
-                    "excess_delay_min": round(o.excess_delay_min, 3),
-                    "maintenances_on_fault": o.maintenances_on_fault, "maintenances_false": o.maintenances_false,
+                    # fault runs stop 24 h after the onset: whole-trace excess is undefined
+                    "excess_delay_min": "" if station else round(o.excess_delay_min, 3),
+                    "excess_h8_min": round(hx.get(480.0, 0.0), 3) if station else "",
+                    "excess_h24_min": round(hx.get(1440.0, 0.0), 3) if station else "",
+                    "maintenances_on_fault": (o.maintenances_on_fault_h or {}).get(HORIZON_MIN, 0) if station
+                    else 0,
+                    "maintenances_false": (o.maintenances_false_h or {}).get(HORIZON_MIN, 0) if station
+                    else o.maintenances_false,
                     "first_action_latency_min": o.first_action_latency_min, "pieces_rerouted": o.pieces_rerouted,
                     "maintenance_wait_min": round(o.maintenance_wait_min, 3),
                     "congestion_extra_min": round(o.congestion_extra_min, 3), "span_h": round(span_h, 2),
@@ -181,8 +206,8 @@ def run(args) -> None:
                 }])
                 if is_llm:
                     append(CALLS, CALL_FIELDS, [{
-                        "trace": trace, "station": station, "shape": shape, "planner": label(name, args.tag),
-                        "t_min": round(c.t_min, 1), "eligible": " ".join(c.eligible),
+                        "trace": trace, "station": station, "shape": shape, "onset_idx": k,
+                        "planner": label(name, args.tag), "t_min": round(c.t_min, 1), "eligible": " ".join(c.eligible),
                         "verdicts": json.dumps(c.verdicts), "acted_on": " ".join(c.acted_on),
                         "reason": c.reason, "problems": " | ".join(c.problems),
                         "cached": c.cached, "latency_s": round(c.latency_s, 2),
@@ -193,7 +218,7 @@ def run(args) -> None:
                 if "api_equivalent_usd" in client.stats:
                     extra = f"  ${client.stats['api_equivalent_usd']:.2f} eq."
                 print(f"{dt.datetime.now():%H:%M} {trace.split('_')[2][:-3]:9} {station or 'fault-free':10} "
-                      f"{shape:12} {label(name, args.tag):18} {time.perf_counter() - t0:6.0f}s  "
+                      f"{shape:12} {k!s:2} {label(name, args.tag):18} {time.perf_counter() - t0:6.0f}s  "
                       f"[{finished} new, {el / 3600:.1f} h]{extra}", flush=True)
     summarize()
 
@@ -207,8 +232,8 @@ def summarize() -> None:
     with ROWS.open() as fh:
         rows = list(csv.DictReader(fh))
     for r in rows:
-        r["excess"] = float(r["excess_delay_min"])
-    noop = {(r["trace"], r["station"], r["shape"]): r["excess"] for r in rows if r["planner"] == "noop"}
+        r["excess"] = float(r["excess_h24_min"]) if r["station"] else float(r["excess_delay_min"])
+    noop = {(r["trace"], r["station"], r["shape"], r["onset_idx"]): r["excess"] for r in rows if r["planner"] == "noop"}
     present = []
     for r in rows:
         if r["planner"].split(":")[0] in LLMS and r["planner"] not in present:
@@ -218,8 +243,8 @@ def summarize() -> None:
 
     def pooled(sel):
         num = sum(r["excess"] for r in sel)
-        den = sum(noop.get((r["trace"], r["station"], r["shape"]), 0.0) for r in sel)
-        wins = sum(1 for r in sel if noop.get((r["trace"], r["station"], r["shape"]), 0.0) > r["excess"])
+        den = sum(noop.get((r["trace"], r["station"], r["shape"], r["onset_idx"]), 0.0) for r in sel)
+        wins = sum(1 for r in sel if noop.get((r["trace"], r["station"], r["shape"], r["onset_idx"]), 0.0) > r["excess"])
         return f"{1 - num / den:+.2f} ({wins}/{len(sel)})" if den > 0 and sel else "-"
 
     fault_rows = [r for r in rows if r["station"]]
@@ -265,7 +290,7 @@ def summarize() -> None:
                    for st, t in maint(r))
 
     out += ["\n## Precisión de las acciones (escenarios con fallo)\n",
-            "Acierto específico: actúa sobre la estación averiada cuando, sin el fallo, no lo habría hecho (±120 min). "
+            "Dentro de las 24 h tras el inicio. Acierto específico: actúa sobre la estación averiada cuando, sin el fallo, no lo habría hecho (±120 min). "
             "Un acierto que coincide con una reparación de rutina no cuenta.\n",
             "| Planificador | acierta el fallo | acierto específico | mant. falsos / escenario | latencia mediana (min) |",
             "|---|---|---|---|---|"]
@@ -296,11 +321,21 @@ def main() -> int:
                     help="subset of planners (smoke tests)")
     ap.add_argument("--summary", action="store_true")
     ap.add_argument("--results", type=Path, default=None, help="alternative results dir (smoke tests)")
+    ap.add_argument("--analyze", choices=["legacy", "processing"], default="legacy",
+                    help="processing: per-station detector of results/detector_choice.json, prompt v3")
     args = ap.parse_args()
     if args.model is None:
         args.model = "claude-fable-5-1" if args.backend == "agent-sdk" else "qwen2.5:7b"
     if args.tag is None:
         args.tag = {"claude-fable-5-1": "fable-5.1", "claude-fable-5": "fable-5"}.get(args.model, "" if args.backend == "ollama" else args.model)
+    if args.analyze == "processing":
+        global ANALYZE, PROCESSING_PARAMS
+        ANALYZE = "processing"
+        PROCESSING_PARAMS = json.loads((HERE / "results" / "detector_choice.json").read_text())
+        LLM_VERSIONS.update({"llm_c1": "v3", "llm_c2": "v3", "hybrid": "v3+h1"})
+        if args.results is None:
+            args.results = HERE / "results" / "processing"
+            args.results.mkdir(parents=True, exist_ok=True)
     if args.results is not None:
         global RESULTS, ROWS, CALLS, SUMMARY
         RESULTS = args.results

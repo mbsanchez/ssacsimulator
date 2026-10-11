@@ -26,6 +26,7 @@ from ssac.intervention import Fault
 from ssac.llm import OllamaClient
 from ssac.llm_planner import PROMPT_VERSION, LLMPlanner
 from ssac.metrics import outcome
+from ssac.onsets import HORIZON_MIN, HORIZONS_MIN, onsets
 from ssac.hybrid_planner import HybridPlanner
 from ssac.planning import (AdaptiveRulePlanner, CalibratedRulePlanner, ContextAdaptiveRulePlanner, NoOpPlanner,
                            TwinOnlyRulePlanner)
@@ -53,11 +54,21 @@ def main() -> int:
     ap.add_argument("--effort", default="low", help="agent-sdk only")
     ap.add_argument("--note", default="")
     ap.add_argument("--cache", type=Path, default=HERE / "cache" / "llm_cache.sqlite")
+    ap.add_argument("--analyze", choices=["legacy", "processing"], default="legacy",
+                    help="processing: design v2 with the per-station detector and prompt v3 "
+                         "(first onset of each dev case, 24-h horizon)")
     args = ap.parse_args()
+    import json
+    proc = args.analyze == "processing"
+    params = json.loads((HERE / "results" / "detector_choice.json").read_text()) if proc else None
+    det = (args.analyze,)
+    kw = {"analyze": "processing"} if proc else {}
+    vers = {"c1": "v3", "c2": "v3", "hybrid": "v3+h1"} if proc else {"c1": PROMPT_VERSION, "c2": PROMPT_VERSION,
+                                                                       "hybrid": "v2+h1"}
 
     data = SimulationData.load(ROOT / DEV_TRACE)
     span_h = (data.events[-1].start_time - data.events[0].start_time) / 60.0
-    rates = alarm_rates(MODEL, SimulationData.load(ROOT / CALIB_TRACE), ("legacy",))
+    rates = alarm_rates(MODEL, SimulationData.load(ROOT / CALIB_TRACE), det, processing_params=params)
     m, _ = BusinessProcessModel.load(MODEL)
     ref = SimulationEngine(m, data)
     ref.run()
@@ -76,30 +87,35 @@ def main() -> int:
             "rules_cal": lambda: CalibratedRulePlanner(rates),
             "rules_adapt": lambda: AdaptiveRulePlanner(),
             "rules_twin": lambda: TwinOnlyRulePlanner(),
-            "c1": lambda: LLMPlanner(client),
-            "c2": lambda: RAGPlanner(client, baseline_per_min=rates),
-            "hybrid": lambda: HybridPlanner(client, baseline_per_min=rates),
+            "c1": lambda: LLMPlanner(client, prompt_version=vers["c1"], **kw),
+            "c2": lambda: RAGPlanner(client, baseline_per_min=rates, prompt_version=vers["c2"], **kw),
+            "hybrid": lambda: HybridPlanner(client, baseline_per_min=rates, prompt_version=vers["hybrid"], **kw),
             "rules_adapt_ctx": lambda: ContextAdaptiveRulePlanner(),
         }[name]()
 
     rows = []
     llm_stats = {}
     for label, station, shape in DEV_SET:
-        faults = [] if station is None else [Fault(station, 3.0, data.events[0].start_time + 600, shape=shape)]
+        if proc and station:
+            onset = onsets(DEV_TRACE, station, shape, data.events[0].start_time, data.events[-1].start_time)[0]
+        else:
+            onset = data.events[0].start_time + 600
+        faults = [] if station is None else [Fault(station, 3.0, onset, shape=shape)]
         base = None
         for name in ["noop", "rules_cal", "rules_adapt", "rules_twin", "rules_adapt_ctx"] + args.planners:
             planner = make(name)
             m, _ = BusinessProcessModel.load(MODEL)
-            eng = SimulationEngine(m, data, faults=faults, planner=planner)
+            eng = SimulationEngine(m, data, faults=faults, planner=planner, detectors=det, processing_params=params)
             h0, s0 = client.stats["cache_hits"], client.stats["seconds"]
             t0 = time.perf_counter()
-            eng.run()
-            o = outcome(name, eng, reference, faults)
+            eng.run(until_min=onset + HORIZON_MIN if (proc and station) else None)
+            o = outcome(name, eng, reference, faults, horizons_min=HORIZONS_MIN)
+            ex = o.excess_h[HORIZON_MIN] if (proc and station) else o.excess_delay_min
             if name == "noop":
-                base = o.excess_delay_min
+                base = ex
             row = {
-                "case": label, "planner": name, "excess": o.excess_delay_min,
-                "recovery": (1 - o.excess_delay_min / base) if station and base else None,
+                "case": label, "planner": name, "excess": ex,
+                "recovery": (1 - ex / base) if station and base else None,
                 "fp_per_h": o.excess_delay_min / span_h if station is None else None,
                 "hit": o.maintenances_on_fault, "fp": o.maintenances_false,
                 "latency": o.first_action_latency_min, "seconds": time.perf_counter() - t0,
@@ -123,7 +139,7 @@ def main() -> int:
     log = HERE / "results" / "dev_log.md"
     log.parent.mkdir(exist_ok=True)
     stamp = dt.datetime.now().strftime("%Y-%m-%d %H:%M")
-    versions = ", ".join(f"{n}: {'v2+h1' if n == 'hybrid' else PROMPT_VERSION}" for n in args.planners)
+    versions = ", ".join(f"{n}: {vers[n]}" for n in args.planners) + (", detector processing, design v2" if proc else "")
     lines = [f"\n## {stamp} — prompts ({versions}), model {args.model}, trace {DEV_TRACE}\n"]
     if args.note:
         lines.append(f"{args.note}\n")

@@ -88,7 +88,7 @@ class RuleBasedPlanner:
     `CalibratedRulePlanner`.
     """
     repair_min: float = 60.0
-    cooldown_min: float = 120.0
+    cooldown_min: float = 240.0   # same as every other planner (120 until design v2)
     react_to: frozenset[str] = frozenset({"STATION_FAILURE", "STATION_DEGRADED"})
     name: str = "rules_naive"
     _last_acted: dict[str, float] = field(default_factory=dict)

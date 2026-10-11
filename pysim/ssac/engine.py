@@ -137,6 +137,7 @@ class SimulationEngine:
         effects: EffectModel | None = None,
         detectors: tuple[str, ...] = ("legacy",),
         degraded_window: int = 10,
+        processing_params: dict | None = None,
         step_all_pieces: bool = False,
     ) -> None:
         """
@@ -150,6 +151,10 @@ class SimulationEngine:
                          emits one detection per station. See README for why
                          the legacy station detector cannot isolate a single
                          faulty station.
+        "processing"     replaces the legacy station detector (its alarms are
+                         no longer emitted) with the per-station detector on
+                         processing times of ssac/processing_detector.py,
+                         configured by `processing_params`.
         step_all_pieces  True runs the original per-tick loop over every piece
                          in the system. Kept only as the test oracle for the
                          fast path; results are identical either way.
@@ -171,6 +176,11 @@ class SimulationEngine:
         self.detectors = frozenset(detectors) | {"legacy"}
         self.degraded_window = degraded_window
         self._degraded_acc: dict[tuple[str, str], list[float]] = {}
+        self._processing = None
+        if "processing" in self.detectors:
+            from .processing_detector import ProcessingDetector
+            from .topology import SENTINELS
+            self._processing = ProcessingDetector(exclude=frozenset(SENTINELS), **(processing_params or {}))
 
         self.twins = find_twins(process_model)
         self.interventions: InterventionState | None = None
@@ -200,7 +210,9 @@ class SimulationEngine:
 
     # ---- main loop -----------------------------------------------------
 
-    def run(self, max_ticks: int | None = None) -> RunStats:
+    def run(self, max_ticks: int | None = None, until_min: float | None = None) -> RunStats:
+        """Run the replay. `until_min` stops before the first event at or after
+        that simulated time (pieces still in the line have no lifetime)."""
         base_dx = self.time_delay * self.speed
 
         while True:
@@ -209,6 +221,8 @@ class SimulationEngine:
 
             event = self.data.event_at(self.last_event + 1)
             if event is None:
+                break
+            if until_min is not None and event.start_time_ms >= until_min * 60000.0:
                 break
 
             self.stats.ticks += 1
@@ -238,6 +252,8 @@ class SimulationEngine:
                 ev = event
                 if self.interventions is not None:
                     ev = self.interventions.transform(event, self.current_time_ms / 60000.0)
+                if self._processing is not None:
+                    self._processing.observe(ev.begin_actor, self.current_time_ms / 60000.0, ev.transition_time)
 
                 if ev.case_id in self.pieces:
                     piece = self.pieces[ev.case_id]
@@ -364,6 +380,13 @@ class SimulationEngine:
             )
 
     def _check_station_failures(self) -> None:
+        if self._processing is not None:
+            flagged = self._processing.flush(self.current_time_ms / 60000.0)
+            if flagged:
+                self._emit(FailType.STATION_DEGRADED,
+                           f"processing times above recent history: {', '.join(flagged)}", stations=flagged)
+            self.model.reset_failing_actors()
+            return
         if self.model.count_failing_actors() > self.model.station_failure_threshold:
             failing = tuple(a.name for a in self.model.actors.values() if a.failing)
             self._emit(

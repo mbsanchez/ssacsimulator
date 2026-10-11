@@ -56,6 +56,15 @@ Only a "degraded" station may receive an action other than "none".
 
 Answer only with JSON matching the schema. Keep "reason" under 30 words."""
 
+# The only change from v2 to v3: the description of the Analyze phase, for the
+# per-station detector on processing times (ssac/processing_detector.py).
+LEGACY_ALARMS = ("How alarms work. The Analyze phase raises an alarm listing stations whose recent transition times "
+                 "exceeded 1.3 times their reference time within the same batch of events.")
+PROCESSING_ALARMS = ("How alarms work. The Analyze phase checks each station separately. It raises an alarm listing "
+                     "the stations whose recent processing times (transitions of up to 60 minutes leaving the "
+                     "station) exceed the station's own recent history more often than chance would explain.")
+assert LEGACY_ALARMS in SYSTEM_PROMPT
+
 
 def response_schema(eligible: list[str]) -> dict:
     per_station = {
@@ -118,12 +127,15 @@ class LLMPlanner:
     react_to: frozenset[str] = frozenset({"STATION_FAILURE", "STATION_DEGRADED"})
     name: str = "llm_c1"
     prompt_version: str = PROMPT_VERSION
+    analyze: str = "legacy"   # "processing": the per-station detector, prompt v3
     calls: list[CallRecord] = field(default_factory=list)
     _last_acted: dict[str, float] = field(default_factory=dict)
 
     # ---- prompt ---------------------------------------------------------
 
     def system_prompt(self) -> str:
+        if self.analyze == "processing":
+            return SYSTEM_PROMPT.replace(LEGACY_ALARMS, PROCESSING_ALARMS)
         return SYSTEM_PROMPT
 
     def describe_state(self, ctx: PlanningContext, eligible: list[str]) -> list[str]:

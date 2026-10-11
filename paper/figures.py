@@ -90,11 +90,11 @@ plt.rcParams.update({
 
 def load():
     rows = list(csv.DictReader((RESULTS / "llm_sweep_rows.csv").open()))
-    fault = {(r["trace"], r["station"], r["shape"], r["planner"]): float(r["excess_delay_min"])
+    fault = {(r["trace"], r["station"], r["shape"], r["onset_idx"], r["planner"]): float(r["excess_h24_min"])
              for r in rows if r["station"]}
     free = {(r["trace"], r["planner"]): float(r["excess_delay_min"]) / float(r["span_h"])
             for r in rows if not r["station"]}
-    keys = sorted({k[:3] for k in fault})
+    keys = sorted({k[:4] for k in fault})
     return fault, free, keys
 
 

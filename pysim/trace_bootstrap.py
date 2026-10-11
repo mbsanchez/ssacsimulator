@@ -29,18 +29,19 @@ SHAPES = [("todas", None), ("escalón", "step"), ("intermitente", "intermittent"
 
 def main() -> int:
     rows = list(csv.DictReader((RESULTS / "llm_sweep_rows.csv").open()))
-    ex = {(r["trace"], r["station"], r["shape"], r["planner"]): float(r["excess_delay_min"]) for r in rows if r["station"]}
+    ex = {(r["trace"], r["station"], r["shape"], r["onset_idx"], r["planner"]): float(r["excess_h24_min"])
+          for r in rows if r["station"]}
     traces = sorted({k[0] for k in ex})
 
     def keys(trace, shape):
-        return sorted({k[:3] for k in ex if k[0] == trace and (shape is None or k[2] == shape)})
+        return sorted({k[:4] for k in ex if k[0] == trace and (shape is None or k[2] == shape)})
 
     def delta(sample, a, b):
         den = sum(ex[k + ("noop",)] for k in sample)
         return (sum(ex[k + (b,)] for k in sample) - sum(ex[k + (a,)] for k in sample)) / den
 
     out = ["# Incertidumbre con la traza como unidad de remuestreo\n",
-           "Δ = recuperación agregada(A) − recuperación agregada(B) en las trazas reservadas. "
+           "Diseño v2. Δ = recuperación agregada a 24 h (A) − ídem (B) en las trazas reservadas. "
            "«Exacto»: las 27 extracciones ordenadas de 3 trazas con reemplazo; se dan el mínimo, el máximo y la fracción con Δ ≤ 0. "
            "«Dos niveles»: trazas con reemplazo y luego escenarios dentro de cada traza, 10 000 remuestras, semilla 0, IC 95 % percentil. "
            "Con tres conglomerados ningún intervalo es fiable; el objetivo es mostrar cuánto se ensancha respecto del bootstrap estratificado de `stats.md`.\n",

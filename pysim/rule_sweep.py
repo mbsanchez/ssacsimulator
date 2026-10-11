@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-"""Rule-only experiments. No language model is called.
+"""Rule-only experiments, evaluation design v2
+(see results/dev_log.md). No language model is called.
 
   A  naive cooldown   the naive planner with the 240 min cooldown of every
                       other planner (it uses 120 min by default).
@@ -12,11 +13,12 @@
                       the LLM prompts followed. The held-out optimum is also
                       reported, as an upper bound no honest protocol reaches.
 
-Scenarios are those of llm_sweep.py (8 stations x 3 shapes, fault x3 starting
-600 min after the first event, central effect model), so held-out results are
+Scenarios are those of llm_sweep.py: 8 stations x 3 shapes x 3 onsets
+(ssac/onsets.py), fault x3, central effect model, each run stopped 24 h after
+the onset; recovery is measured within that horizon. Held-out results are
 directly comparable with the rows in results/llm_sweep_rows.csv.
 
-    python rule_sweep.py              # run everything (~10 min on 7 workers)
+    python rule_sweep.py              # run everything
     python rule_sweep.py --summary    # rebuild the summary from the CSV
 """
 
@@ -35,6 +37,7 @@ from ssac import BusinessProcessModel, SimulationData, SimulationEngine
 from ssac.calibration import alarm_rates
 from ssac.intervention import Fault
 from ssac.metrics import outcome
+from ssac.onsets import HORIZON_MIN, HORIZONS_MIN, onsets
 from ssac.planning import (AdaptiveRulePlanner, CalibratedRulePlanner, ContextAdaptiveRulePlanner, NoOpPlanner,
                            RuleBasedPlanner)
 
@@ -56,15 +59,15 @@ TRACES = {
 HELD_OUT = [t for t in TRACES if t != DEV]
 STATIONS = ["L0_S2", "L0_S4", "L0_S6", "L3_S35", "L0_S1", "L0_S8", "L3_S29", "L3_S33"]
 SHAPES = ["step", "intermittent", "drift"]
-FAULT_OFFSET_MIN = 600.0
 
 WINDOWS = [60.0, 120.0, 180.0, 240.0, 360.0]
 ALPHAS = [1e-2, 1e-3, 1e-4]
 HISTORIES = [720.0, 1440.0, 2880.0]
 DEFAULT = {"window_min": 120.0, "alpha": 1e-3, "history_min": 1440.0}
 
-FIELDS = ["trace", "station", "shape", "planner", "config", "excess_delay_min", "maintenances_on_fault",
-          "maintenances_false", "first_action_latency_min", "span_h", "fault_start_min", "maint_log"]
+FIELDS = ["trace", "station", "shape", "onset_idx", "planner", "config", "excess_delay_min", "excess_h8_min",
+          "excess_h24_min", "maintenances_on_fault", "maintenances_false", "first_action_latency_min", "span_h",
+          "fault_start_min", "maint_log"]
 
 
 def configs() -> list[tuple[str, str, dict]]:
@@ -92,8 +95,13 @@ def default_label(kind: str) -> str:
 _W: dict = {}
 
 
-def _init(references, rates):
-    _W.update(references=references, rates=rates, data={})
+# --analyze processing: per-station detector of results/detector_choice.json
+ANALYZE = "legacy"
+PARAMS: dict | None = None
+
+
+def _init(references, rates, analyze="legacy", params=None):
+    _W.update(references=references, rates=rates, data={}, analyze=analyze, params=params)
 
 
 def _data(trace):
@@ -117,17 +125,25 @@ def _planner(kind, kwargs, trace):
 
 
 def run_task(task):
-    trace, station, shape, kind, label, kwargs = task
+    trace, station, shape, k, onset, kind, label, kwargs = task
     data = _data(trace)
-    faults = [] if not station else [Fault(station, 3.0, data.events[0].start_time + FAULT_OFFSET_MIN, shape=shape)]
+    faults = [] if not station else [Fault(station, 3.0, onset, shape=shape)]
     model, _ = BusinessProcessModel.load(MODEL)
-    eng = SimulationEngine(model, data, faults=faults, planner=_planner(kind, kwargs, trace))
-    eng.run()
-    o = outcome(kind, eng, _W["references"][trace], faults)
+    eng = SimulationEngine(model, data, faults=faults, planner=_planner(kind, kwargs, trace),
+                           detectors=(_W["analyze"],), processing_params=_W["params"])
+    eng.run(until_min=onset + HORIZON_MIN if station else None)
+    o = outcome(kind, eng, _W["references"][trace], faults, horizons_min=HORIZONS_MIN)
+    h = o.excess_h or {}
+    fh = o.maintenances_false_h or {}
+    oh = o.maintenances_on_fault_h or {}
     return {
-        "trace": trace, "station": station, "shape": shape, "planner": kind, "config": label,
-        "excess_delay_min": round(o.excess_delay_min, 3),
-        "maintenances_on_fault": o.maintenances_on_fault, "maintenances_false": o.maintenances_false,
+        "trace": trace, "station": station, "shape": shape, "onset_idx": k, "planner": kind, "config": label,
+        # fault runs stop 24 h after the onset: whole-trace excess is undefined
+        "excess_delay_min": "" if station else round(o.excess_delay_min, 3),
+        "excess_h8_min": round(h.get(480.0, 0.0), 3) if station else "",
+        "excess_h24_min": round(h.get(1440.0, 0.0), 3) if station else "",
+        "maintenances_on_fault": oh.get(HORIZON_MIN, o.maintenances_on_fault) if station else 0,
+        "maintenances_false": fh.get(HORIZON_MIN, o.maintenances_false) if station else o.maintenances_false,
         "first_action_latency_min": "" if o.first_action_latency_min is None else o.first_action_latency_min,
         "span_h": round((data.events[-1].start_time - data.events[0].start_time) / 60.0, 2),
         "fault_start_min": faults[0].start_min if faults else "",
@@ -143,23 +159,29 @@ def _reference(trace):
     return dict(eng.lifetimes)
 
 
-def _rates(trace):
-    return alarm_rates(MODEL, SimulationData.load(ROOT / TRACES[trace]), ("legacy",))
+def _rates(trace, analyze="legacy", params=None):
+    return alarm_rates(MODEL, SimulationData.load(ROOT / TRACES[trace]), (analyze,), processing_params=params)
 
 
 def run(workers: int) -> None:
-    scen = [(t, "", "") for t in TRACES] + [(t, s, sh) for t in TRACES for s in STATIONS for sh in SHAPES]
-    tasks = [(t, s, sh, kind, label, kw) for t, s, sh in scen for kind, label, kw in configs()
+    scen = [(t, "", "", "", 0.0) for t in TRACES]
+    for t in TRACES:
+        d = SimulationData.load(ROOT / t)
+        for s in STATIONS:
+            for sh in SHAPES:
+                for k, o in enumerate(onsets(t, s, sh, d.events[0].start_time, d.events[-1].start_time)):
+                    scen.append((t, s, sh, k, o))
+    tasks = [(t, s, sh, k, o, kind, label, kw) for t, s, sh, k, o in scen for kind, label, kw in configs()
              if not (kind == "noop" and not s)]
     print(f"{len(tasks)} runs on {workers} workers", flush=True)
     t0 = time.perf_counter()
     with ProcessPoolExecutor(workers) as pool:
         refs = {t: pool.submit(_reference, t) for t in TRACES}
-        rts = {t: pool.submit(_rates, t) for t in TRACES}
+        rts = {t: pool.submit(_rates, t, ANALYZE, PARAMS) for t in TRACES}
         references = {t: f.result() for t, f in refs.items()}
         rates = {t: f.result() for t, f in rts.items()}
     rows = []
-    with ProcessPoolExecutor(workers, initializer=_init, initargs=(references, rates)) as pool:
+    with ProcessPoolExecutor(workers, initializer=_init, initargs=(references, rates, ANALYZE, PARAMS)) as pool:
         futs = [pool.submit(run_task, t) for t in tasks]
         for i, f in enumerate(as_completed(futs), 1):
             rows.append(f.result())
@@ -170,11 +192,14 @@ def run(workers: int) -> None:
     with ROWS.open("w", newline="") as fh:
         w = csv.DictWriter(fh, fieldnames=FIELDS)
         w.writeheader()
-        w.writerows(sorted(rows, key=lambda r: (r["planner"], r["config"], r["trace"], r["station"], r["shape"])))
+        w.writerows(sorted(rows, key=lambda r: (r["planner"], r["config"], r["trace"], r["station"], r["shape"],
+                                                 str(r["onset_idx"]))))
     (RESULTS / "rule_sweep_meta.json").write_text(json.dumps({
         "runs": len(rows), "workers": workers, "seconds": round(time.perf_counter() - t0),
         "dev": DEV, "held_out": HELD_OUT, "calibration": TRACES, "windows": WINDOWS, "alphas": ALPHAS,
-        "histories": HISTORIES, "default": DEFAULT, "fault_factor": 3.0, "fault_offset_min": FAULT_OFFSET_MIN,
+        "histories": HISTORIES, "default": DEFAULT, "fault_factor": 3.0, "design": "v2",
+        "analyze": ANALYZE, "processing_params": PARAMS,
+        "horizons_min": HORIZONS_MIN, "primary_horizon_min": HORIZON_MIN,
     }, indent=2))
 
 
@@ -183,7 +208,8 @@ def run(workers: int) -> None:
 def load_rows():
     rows = list(csv.DictReader(ROWS.open()))
     for r in rows:
-        r["excess"] = float(r["excess_delay_min"])
+        # fault scenarios: excess within the primary horizon; fault-free: whole trace
+        r["excess"] = float(r["excess_h24_min"]) if r["station"] else float(r["excess_delay_min"])
     return rows
 
 
@@ -197,7 +223,7 @@ def maint(r):
 
 def summarize() -> None:
     rows = load_rows()
-    noop = {(r["trace"], r["station"], r["shape"]): r["excess"] for r in rows if r["planner"] == "noop"}
+    noop = {(r["trace"], r["station"], r["shape"], r["onset_idx"]): r["excess"] for r in rows if r["planner"] == "noop"}
     fault = [r for r in rows if r["station"] and r["planner"] != "noop"]
     ff = {(r["trace"], r["planner"], r["config"]): r for r in rows if not r["station"]}
     by = {}
@@ -208,11 +234,11 @@ def summarize() -> None:
         return [r for r in by[(p, c)] if r["trace"] in traces and r["shape"] in shapes]
 
     def pooled(rs):
-        den = sum(noop[(r["trace"], r["station"], r["shape"])] for r in rs)
+        den = sum(noop[(r["trace"], r["station"], r["shape"], r["onset_idx"])] for r in rs)
         return 1 - sum(r["excess"] for r in rs) / den if den else float("nan")
 
     def wins(rs):
-        return sum(1 for r in rs if noop[(r["trace"], r["station"], r["shape"])] > r["excess"])
+        return sum(1 for r in rs if noop[(r["trace"], r["station"], r["shape"], r["onset_idx"])] > r["excess"])
 
     def fa_cost(p, c, traces):
         return sum(ff[(t, p, c)]["excess"] / float(ff[(t, p, c)]["span_h"]) for t in traces) / len(traces)
@@ -234,19 +260,19 @@ def summarize() -> None:
     if llm_path.exists():
         for r in csv.DictReader(llm_path.open()):
             if r["station"]:
-                llm.setdefault(r["planner"], []).append(dict(r, excess=float(r["excess_delay_min"])))
+                llm.setdefault(r["planner"], []).append(dict(r, excess=float(r["excess_h24_min"])))
 
     out = ["# Experimentos solo con reglas (sin LLM)\n",
-           "Escenarios de `llm_sweep.py`: 8 estaciones × 3 formas, fallo ×3 desde el minuto 600, modelo de efectos central. "
-           "Recuperación agregada = 1 − Σ exceso / Σ exceso sin acción; entre paréntesis, escenarios con beneficio neto. "
+           "Diseño v2: 8 estaciones × 3 formas × 3 inicios, fallo ×3, modelo de efectos central. "
+           "Recuperación agregada a 24 h = 1 − Σ exceso en [t0, t0+24 h) / Σ ídem sin acción; entre paréntesis, escenarios con beneficio neto. "
            f"Desarrollo = `{DEV}`; reservadas = las otras tres.\n"]
 
     # consistency with the held-out evaluation
     chk = []
     for p in ("rules_adapt", "rules_adapt_ctx", "rules_cal"):
         if p in llm:
-            mine = {(r["trace"], r["station"], r["shape"]): r["excess"] for r in sel(p, default_label(p), HELD_OUT)}
-            theirs = {(r["trace"], r["station"], r["shape"]): r["excess"] for r in llm[p]}
+            mine = {(r["trace"], r["station"], r["shape"], r["onset_idx"]): r["excess"] for r in sel(p, default_label(p), HELD_OUT)}
+            theirs = {(r["trace"], r["station"], r["shape"], r["onset_idx"]): r["excess"] for r in llm[p]}
             diff = max(abs(mine[k] - theirs[k]) for k in theirs)
             chk.append(f"{p}: máx. |Δ exceso| = {diff:.3f} min-pieza en {len(theirs)} escenarios")
     if chk:
@@ -323,7 +349,7 @@ def summarize() -> None:
         if "llm_c2:fable-5.1" in llm:
             import random
             from scipy.stats import rankdata, wilcoxon
-            fab = {(r["trace"], r["station"], r["shape"]): r["excess"] for r in llm["llm_c2:fable-5.1"]}
+            fab = {(r["trace"], r["station"], r["shape"], r["onset_idx"]): r["excess"] for r in llm["llm_c2:fable-5.1"]}
             out += ["\n## C2 con Fable 5.1 frente a reglas reajustadas (emparejado)\n",
                     "Δ = recuperación(Fable) − recuperación(regla), IC 95 % bootstrap estratificado por traza "
                     "(10 000, semilla 0, como `stats.py`); Wilcoxon sobre el exceso por escenario, sin ajuste.\n",
@@ -335,7 +361,7 @@ def summarize() -> None:
                             (p, "elegida en desarrollo", max(cfgs, key=lambda c: pooled(sel(p, c, [DEV])))),
                             (p, "óptimo en reservadas", max(cfgs, key=lambda c: pooled(sel(p, c, HELD_OUT))))]
             for p, kind, c in targets:
-                ru = {(r["trace"], r["station"], r["shape"]): r["excess"] for r in sel(p, c, HELD_OUT)}
+                ru = {(r["trace"], r["station"], r["shape"], r["onset_idx"]): r["excess"] for r in sel(p, c, HELD_OUT)}
                 for sname, shapes in (("todas", SHAPES), ("intermitente", ["intermittent"])):
                     ks = sorted(k for k in fab if k[2] in shapes)
 
@@ -361,7 +387,15 @@ def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--workers", type=int, default=max(1, (os.cpu_count() or 2) - 1))
     ap.add_argument("--summary", action="store_true")
+    ap.add_argument("--analyze", choices=["legacy", "processing"], default="legacy")
     args = ap.parse_args()
+    if args.analyze == "processing":
+        global ANALYZE, PARAMS, RESULTS, ROWS, SUMMARY
+        ANALYZE = "processing"
+        PARAMS = json.loads((RESULTS / "detector_choice.json").read_text())
+        RESULTS = RESULTS / "processing"
+        RESULTS.mkdir(exist_ok=True)
+        ROWS, SUMMARY = RESULTS / "rule_sweep.csv", RESULTS / "rule_sweep_summary.md"
     if not args.summary:
         run(args.workers)
     summarize()

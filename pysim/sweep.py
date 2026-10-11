@@ -1,13 +1,16 @@
 #!/usr/bin/env python3
 """Sensitivity sweep over the assumptions of the effect model.
 
-Two parts, both on the legacy (original 2020) detectors:
+Evaluation design v2 (results/dev_log.md): 3 onsets per scenario, a repair
+clears only faults active when it starts, runs stop 24 h after the onset and
+recovery is measured within that horizon. Two parts, both on the legacy
+(original 2020) detectors:
 
   central grid   full factorial over the scenario axes, at the central
-                 parameters: trace x station x fault shape, all planners.
+                 parameters: trace x station x fault shape x onset, all planners.
   one-at-a-time  around the central point, vary one parameter at a time:
                  fault severity, repair duration, congestion alpha,
-                 maintenance mode. Step faults only.
+                 maintenance mode. All fault shapes.
 
 Every assumption we could not ground in data (repair time, congestion, how
 Bosch handles a station under repair) is an axis here, so the paper can
@@ -33,6 +36,7 @@ from ssac import BusinessProcessModel, SimulationData, SimulationEngine
 from ssac.calibration import alarm_rates
 from ssac.intervention import EffectModel, Fault
 from ssac.metrics import outcome
+from ssac.onsets import HORIZON_MIN, HORIZONS_MIN, onsets
 from ssac.planning import (AdaptiveRulePlanner, CalibratedRulePlanner, NoOpPlanner, RuleBasedPlanner,
                            TwinOnlyRulePlanner)
 from ssac.topology import find_twins
@@ -55,7 +59,6 @@ STATIONS_TWIN = ["L0_S2", "L0_S4", "L0_S6", "L3_S35"]
 STATIONS_NO_TWIN = ["L0_S1", "L0_S8", "L3_S29", "L3_S33"]
 MIN_FAULT_COST = 1000.0   # scenarios where doing nothing costs less are not scored per-scenario
 SHAPES = ["step", "intermittent", "drift"]
-FAULT_OFFSET_MIN = 600.0   # fault starts this long after the trace's first event
 
 
 @dataclass(frozen=True)
@@ -85,6 +88,8 @@ class Task:
     shape: str
     planner: str
     cfg: Config
+    onset_idx: int | str = ""
+    onset: float = 0.0
 
 
 # ---- worker ------------------------------------------------------------
@@ -121,8 +126,7 @@ def _planner(name: str, trace: str, cfg: Config):
 def run_task(task: Task) -> dict:
     t0 = time.perf_counter()
     data = _data(task.trace)
-    start = data.events[0].start_time + FAULT_OFFSET_MIN
-    faults = [] if task.part == "faultfree" else [Fault(task.station, task.cfg.factor, start, shape=task.shape)]
+    faults = [] if task.part == "faultfree" else [Fault(task.station, task.cfg.factor, task.onset, shape=task.shape)]
     model, errors = BusinessProcessModel.load(MODEL)
     assert not errors, errors
     effects = EffectModel(
@@ -137,17 +141,24 @@ def run_task(task: Task) -> dict:
         effects=effects,
         detectors=DETECTORS,
     )
-    engine.run()
-    o = outcome(task.planner, engine, _W["references"][task.trace], faults)
+    engine.run(until_min=task.onset + HORIZON_MIN if faults else None)
+    o = outcome(task.planner, engine, _W["references"][task.trace], faults, horizons_min=HORIZONS_MIN)
     span_h = (data.events[-1].start_time - data.events[0].start_time) / 60.0
     row = {
         "part": task.part, "varied": task.varied, "trace": task.trace,
-        "station": task.station, "shape": task.shape, "planner": task.planner,
+        "station": task.station, "shape": task.shape, "onset_idx": task.onset_idx, "planner": task.planner,
         **{f"cfg_{k}": v for k, v in asdict(task.cfg).items()},
-        **{k: v for k, v in asdict(o).items() if k not in ("policy", "recovery")},
+        **{k: v for k, v in asdict(o).items()
+           if k not in ("policy", "recovery", "excess_h", "maintenances_on_fault_h", "maintenances_false_h")},
         "span_h": round(span_h, 2),
+        "excess_h8_min": round(o.excess_h[480.0], 3) if faults else "",
+        "excess_h24_min": round(o.excess_h[1440.0], 3) if faults else "",
         "seconds": round(time.perf_counter() - t0, 2),
     }
+    if faults:   # counts within the horizon; whole-trace excess undefined (run stopped)
+        row["excess_delay_min"] = ""
+        row["maintenances_on_fault"] = o.maintenances_on_fault_h[HORIZON_MIN]
+        row["maintenances_false"] = o.maintenances_false_h[HORIZON_MIN]
     return row
 
 
@@ -175,19 +186,22 @@ def build_tasks(traces, stations) -> list[Task]:
                     cfg = replace(CENTRAL, **{param: v})
                     tasks.append(Task("faultfree", f"{param}={v:g}" if isinstance(v, float) else f"{param}={v}",
                                       trace, "", "", p, cfg))
+        data = SimulationData.load(ROOT / trace)
+        t_first, t_last = data.events[0].start_time, data.events[-1].start_time
         for station in stations:
             for shape in SHAPES:
-                for p in planners:
-                    tasks.append(Task("central", "", trace, station, shape, p, CENTRAL))
-            for param, values in OAT.items():
-                for v in values:
-                    cfg = replace(CENTRAL, **{param: v})
-                    # noop does not depend on planner-side parameters; only on the fault
-                    planners_here = ["noop", "rules_cal", "rules_adapt", "rules_twin"] if param == "factor" \
-                        else ["rules_cal", "rules_adapt", "rules_twin"]
-                    for p in planners_here:
-                        tasks.append(Task("oat", f"{param}={v:g}" if isinstance(v, float) else f"{param}={v}",
-                                          trace, station, "step", p, cfg))
+                for k, onset in enumerate(onsets(trace, station, shape, t_first, t_last)):
+                    for p in planners:
+                        tasks.append(Task("central", "", trace, station, shape, p, CENTRAL, k, onset))
+                    for param, values in OAT.items():
+                        for v in values:
+                            cfg = replace(CENTRAL, **{param: v})
+                            # noop depends only on the fault, not on planner-side parameters
+                            planners_here = ["noop", "rules_cal", "rules_adapt", "rules_twin"] if param == "factor" \
+                                else ["rules_cal", "rules_adapt", "rules_twin"]
+                            for p in planners_here:
+                                tasks.append(Task("oat", f"{param}={v:g}" if isinstance(v, float) else f"{param}={v}",
+                                                  trace, station, shape, p, cfg, k, onset))
     return tasks
 
 
@@ -202,13 +216,14 @@ def add_recovery(rows: list[dict]) -> None:
     Aggregate results use the pooled ratio instead (see `pooled`)."""
     noop = {}
     for r in rows:
+        r["excess"] = r["excess_h24_min"] if r["station"] else r["excess_delay_min"]
         if r["planner"] == "noop":
-            noop[(r["trace"], r["station"], r["shape"], r["cfg_factor"])] = r["excess_delay_min"]
+            noop[(r["trace"], r["station"], r["shape"], r["onset_idx"], r["cfg_factor"])] = r["excess"]
     for r in rows:
-        base = noop.get((r["trace"], r["station"], r["shape"], r["cfg_factor"]))
+        base = noop.get((r["trace"], r["station"], r["shape"], r["onset_idx"], r["cfg_factor"]))
         r["noop_excess_min"] = base
-        r["net_benefit_min"] = (base - r["excess_delay_min"]) if base is not None else None
-        r["recovery"] = (1.0 - r["excess_delay_min"] / base) if base and base >= MIN_FAULT_COST else None
+        r["net_benefit_min"] = (base - r["excess"]) if base is not None else None
+        r["recovery"] = (1.0 - r["excess"] / base) if base and base >= MIN_FAULT_COST else None
 
 
 def _mean(xs):
@@ -226,7 +241,7 @@ def _median(xs):
 
 def pooled(sel: list[dict]) -> float:
     """1 - sum(policy excess) / sum(no-action excess)."""
-    num = sum(r["excess_delay_min"] for r in sel)
+    num = sum(r["excess"] for r in sel)
     den = sum(r["noop_excess_min"] for r in sel if r["noop_excess_min"] is not None)
     return 1.0 - num / den if den > 0 else float("nan")
 
@@ -250,12 +265,12 @@ def summarize(rows: list[dict], twins: set[str]) -> str:
         cells = []
         for p in planners:
             sel = [r for r in ff if r["trace"] == tr and r["planner"] == p]
-            cells.append(f"{sel[0]['excess_delay_min'] / sel[0]['span_h']:,.0f}" if sel else "-")
+            cells.append(f"{sel[0]['excess'] / sel[0]['span_h']:,.0f}" if sel else "-")
         out.append(f"| {tr} | " + " | ".join(cells) + " |")
 
     out.append("\n## Rejilla central — recuperación agregada (escenarios con beneficio neto > 0)\n")
-    out.append("Recuperación agregada = 1 − Σ exceso(política) / Σ exceso(no hacer nada). "
-               "Detector legacy; fallo x3, reparación 60 min, α = 0,5, contingencia.\n")
+    out.append("Diseño v2. Recuperación agregada a 24 h = 1 − Σ exceso en [t0, t0+24 h) (política) / ídem (no hacer nada). "
+               "Detector legacy; fallo x3, reparación 60 min, α = 0,5, contingencia; 3 inicios por escenario.\n")
     out.append("| Grupo | " + " | ".join(planners) + " |")
     out.append("|---|" + "---|" * len(planners))
     groups = [("todas", lambda r: True),
@@ -269,16 +284,27 @@ def summarize(rows: list[dict], twins: set[str]) -> str:
             cell([r for r in central if r["planner"] == p and pred(r)]) for p in planners) + " |")
 
     out.append("\n## Sensibilidad uno-a-uno — recuperación agregada\n")
-    out.append("Fallo escalón. Cada fila cambia un único parámetro respecto al punto central.\n")
+    out.append("Todas las formas de fallo. Cada fila cambia un único parámetro respecto al punto central.\n")
     pl = ["rules_cal", "rules_adapt", "rules_twin"]
     out.append("| Variación | " + " | ".join(pl) + " |")
     out.append("|---|" + "---|" * len(pl))
-    central_step = [r for r in central if r["shape"] == "step"]
-    out.append("| **central** | " + " | ".join(cell([r for r in central_step if r["planner"] == p]) for p in pl) + " |")
+    out.append("| **central** | " + " | ".join(cell([r for r in central if r["planner"] == p]) for p in pl) + " |")
     oat = [r for r in rows if r["part"] == "oat"]
     for varied in sorted({r["varied"] for r in oat}):
         out.append(f"| {varied} | " + " | ".join(
             cell([r for r in oat if r["varied"] == varied and r["planner"] == p]) for p in pl) + " |")
+
+    out.append("\n### Por forma de fallo — `rules_adapt` / `rules_cal`\n")
+    out.append("| Variación | " + " | ".join(SHAPES) + " |")
+    out.append("|---|" + "---|" * len(SHAPES))
+    out.append("| **central** | " + " | ".join(
+        f"{pooled([r for r in central if r['planner'] == 'rules_adapt' and r['shape'] == s]):+.2f} / "
+        f"{pooled([r for r in central if r['planner'] == 'rules_cal' and r['shape'] == s]):+.2f}" for s in SHAPES) + " |")
+    for varied in sorted({r["varied"] for r in oat}):
+        out.append(f"| {varied} | " + " | ".join(
+            f"{pooled([r for r in oat if r['varied'] == varied and r['planner'] == 'rules_adapt' and r['shape'] == s]):+.2f} / "
+            f"{pooled([r for r in oat if r['varied'] == varied and r['planner'] == 'rules_cal' and r['shape'] == s]):+.2f}"
+            for s in SHAPES) + " |")
 
     out.append("\n## Desglose del coste — rejilla central, medias por escenario (minutos-pieza)\n")
     out.append("| Planificador | exceso | mant. sobre fallo | mant. falsos | latencia 1ª acción (min) | contingencia | congestión |")
@@ -286,7 +312,7 @@ def summarize(rows: list[dict], twins: set[str]) -> str:
     for p in ["noop"] + planners:
         sel = [r for r in central if r["planner"] == p]
         out.append(
-            f"| {p} | {_mean([r['excess_delay_min'] for r in sel]):,.0f} | "
+            f"| {p} | {_mean([r['excess'] for r in sel]):,.0f} | "
             f"{_mean([r['maintenances_on_fault'] for r in sel]):.1f} | "
             f"{_mean([r['maintenances_false'] for r in sel]):.1f} | "
             f"{_median([r['first_action_latency_min'] for r in sel if r['first_action_latency_min'] not in (None, '')]):,.0f} | "
@@ -339,7 +365,8 @@ def main() -> int:
     with (args.out / "sweep.csv").open("w", newline="") as fh:
         w = csv.DictWriter(fh, fieldnames=list(rows[0]))
         w.writeheader()
-        w.writerows(sorted(rows, key=lambda r: (r["part"], r["varied"], r["trace"], r["station"], r["shape"], r["planner"])))
+        w.writerows(sorted(rows, key=lambda r: (r["part"], r["varied"], r["trace"], r["station"], r["shape"],
+                                                 str(r["onset_idx"]), r["planner"])))
     summary = summarize(rows, twins)
     (args.out / "sweep_summary.md").write_text(summary + "\n")
     (args.out / "sweep_meta.json").write_text(json.dumps({
@@ -348,6 +375,7 @@ def main() -> int:
         "oat": OAT, "traces": TRACES, "stations_twin": STATIONS_TWIN,
         "stations_no_twin": STATIONS_NO_TWIN, "detectors": DETECTORS,
         "min_fault_cost": MIN_FAULT_COST, "effect_model": "additive, scaled by tau_S",
+        "design": "v2", "horizons_min": HORIZONS_MIN, "primary_horizon_min": HORIZON_MIN,
     }, indent=2))
     print("\n" + summary)
     print(f"\nwrote {args.out}/sweep.csv, sweep_summary.md, sweep_meta.json  ({time.perf_counter() - t0:.0f}s total)")

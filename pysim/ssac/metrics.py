@@ -39,6 +39,10 @@ class Outcome:
     fault_extra_min: float
     congestion_extra_min: float
     recovery: float | None = None
+    # Design v2: within a horizon after the fault onset (minutes -> value).
+    excess_h: dict[float, float] | None = None
+    maintenances_on_fault_h: dict[float, int] | None = None
+    maintenances_false_h: dict[float, int] | None = None
 
 
 def outcome(
@@ -47,6 +51,7 @@ def outcome(
     reference: dict[str, float],
     faults: list[Fault],
     station_types: tuple[FailType, ...] = (FailType.STATION_FAILURE, FailType.STATION_DEGRADED),
+    horizons_min: tuple[float, ...] = (),
 ) -> Outcome:
     excess = 0.0
     delayed = 0
@@ -94,7 +99,25 @@ def outcome(
         maintenance_wait_min=st.maintenance_wait_min if st else 0.0,
         fault_extra_min=st.fault_extra_min if st else 0.0,
         congestion_extra_min=st.congestion_extra_min if st else 0.0,
+        **_horizon(iv, maint, faulty, start, horizons_min),
     )
+
+
+def _horizon(iv, maint, faulty, start, horizons_min) -> dict:
+    """Excess delay added to transitions in [start, start + h), and repairs
+    started in that window, for each horizon h. The model is additive, so the
+    sum of per-transition additions over the whole run equals the lifetime
+    excess of `excess_delay_min`."""
+    if not horizons_min or start is None:
+        return {}
+    extras = iv.extras if iv is not None else []
+    ex, on, false = {}, {}, {}
+    for h in horizons_min:
+        ex[h] = sum(x for t, x in extras if start <= t < start + h)
+        win = [d for d in maint if start <= d.t_min < start + h]
+        on[h] = sum(1 for d in win if d.action.station in faulty)
+        false[h] = len(win) - on[h]
+    return {"excess_h": ex, "maintenances_on_fault_h": on, "maintenances_false_h": false}
 
 
 def with_recovery(outcomes: list[Outcome], baseline: str = "noop") -> list[Outcome]:

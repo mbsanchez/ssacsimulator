@@ -344,3 +344,30 @@ def test_twin_only_control_skips_when_twin_is_busy(model, twins):
     st = InterventionState(model, service_times=TAU)
     st.apply(Maintenance("B2", 60.0), 0.0)
     assert TwinOnlyRulePlanner().plan(ctx(model, twins, st, 10.0, ["B1"])) == []
+
+
+def test_repair_does_not_clear_a_fault_that_begins_during_it(model):
+    """Design v2: a repair clears only faults active when it starts. A fault
+    beginning 12 min into a routine repair survives it."""
+    st = InterventionState(model, service_times=TAU, faults=[Fault("B1", 3.0, 12.0)])
+    st.apply(Maintenance("B1", 60.0), 0.0)
+    assert st.fault_factor("B1", 61.0) == 3.0
+    v1 = InterventionState(model, service_times=TAU, faults=[Fault("B1", 3.0, 12.0)],
+                           effects=EffectModel(repair_clears="begun_before_end"))
+    v1.apply(Maintenance("B1", 60.0), 0.0)
+    assert v1.fault_factor("B1", 61.0) == 1.0
+
+
+def test_extras_log_records_every_addition(model):
+    st = InterventionState(model, service_times=TAU, faults=[Fault("B1", 3.0, 0.0)])
+    st.transform(ev("1", "B1", "C", 5.0), 1.0)
+    st.transform(ev("2", "B1", "C", 5.0), 2.0)
+    assert sum(x for _, x in st.extras) == pytest.approx(2 * 2 * TAU["B1"])
+
+
+def test_onsets_are_stable_and_inside_margins():
+    from ssac.onsets import onsets
+    a = onsets("t.td", "S", "step", 0.0, 10_000.0)
+    assert a == onsets("t.td", "S", "step", 0.0, 10_000.0)
+    assert a != onsets("t.td", "S", "drift", 0.0, 10_000.0)
+    assert len(a) == 3 and all(1440.0 <= x <= 10_000.0 - 1440.0 for x in a)

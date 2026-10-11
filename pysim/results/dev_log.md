@@ -111,3 +111,32 @@ Fault-free: false-alarm cost in piece-minutes per hour. Faults: recovery vs. no 
 7. *Estadística*: estimando primario la diferencia de recuperación a 24 h con bootstrap estratificado por traza; secundarios, Wilcoxon emparejado por escenario y bootstrap de dos niveles por traza.
 
 Los resultados v1 quedan en el historial de git (etiqueta `design-v1`).
+
+## 2026-10-11 — Diseño v2, enmienda: el detector heredado no ve los fallos fuera del arranque
+
+**Hallazgo (barrido de reglas v2, `results/rule_sweep_summary.md`).** El detector de estaciones heredado concentra sus alarmas en las primeras ~24 h de cada traza (alarmas por bloque de 12 h sin fallo: 0-100m 30, 9, 0, 0, 0; 100m-200m 63, 18, 0, 0, 0, 2, …) y un fallo ×3 inyectado después apenas añade alarmas, y tarde. En la traza de desarrollo no hay ninguna alarma tras las 24 h, así que la selección de reglas en desarrollo del diseño v2 es degenerada (todas las configuraciones dan 0). Con el detector heredado y el diseño v2, ninguna regla recupera más de +0,04 a 24 h en las reservadas. Los resultados v1 dependían de inyectar el fallo dentro de la ráfaga de alarmas de arranque.
+
+**Decisión (antes de ver ningún resultado con el detector nuevo).** Se mantiene el diseño v2 y se añade un Analyze por estación (`detectors=("legacy", "processing")`):
+- por estación, solo transiciones en régimen de proceso (≤ 60 min) que salen de ella;
+- referencia causal: percentil 75 de esas transiciones en las 24 h anteriores a la ventana reciente, y tasa nula p0 de superarlo en esa misma historia;
+- prueba: binomial de una cola sobre las superaciones entre las últimas N transiciones; alarma si p < α;
+- calentamiento de 8 h; una alarma STATION_DEGRADED por lote de eventos con todas las estaciones marcadas; una estación no se repite antes de 60 min;
+- N y α se eligen solo en la traza de desarrollo.
+Los planificadores no cambian. Las tasas base de C2 y de la regla calibrada se recalculan con el detector nuevo, con la misma calibración cruzada. El prompt v2 describe el detector heredado; la versión v3 solo cambia esa descripción y se prueba en desarrollo antes de congelarse. Los resultados v2 con el detector heredado se conservan como punto de partida. Fable: C2 y el híbrido primero; C1 al final según los resultados.
+
+## 2026-10-11 14:53 — prompts (c1: v3, c2: v3, hybrid: v3+h1, detector processing, design v2), model qwen2.5:7b, trace test_cases_0-100m.td
+
+Prompt v3 (solo cambia la descripción del Analyze) con el detector por estación elegido en desarrollo (results/detector_choice.json), diseño v2: primer inicio de cada caso, horizonte 24 h. Prueba de que v3 funciona antes de congelarlo.
+
+| Caso | rules_cal | rules_adapt | rules_twin | rules_adapt_ctx | c1 | c2 | hybrid |
+|---|---|---|---|---|---|---|---|
+| fault-free | 197/h · 26 FP | 76/h · 11 FP | 359/h · 44 FP | 78/h · 11 FP | 341/h · 46 FP | 586/h · 76 FP | 63/h · 10 FP |
+| L0_S2 step | +0.88 · 20 FP | +0.91 · 10 FP | +0.78 · 35 FP | +0.92 · 8 FP | +0.66 · 39 FP | +0.57 · 57 FP | +0.94 · 8 FP |
+| L3_S29 step | +0.82 · 20 FP | +0.87 · 11 FP | -0.30 · 38 FP | +0.86 · 11 FP | +0.70 · 39 FP | +0.27 · 61 FP | +0.88 · 10 FP |
+| L0_S8 drift | +0.87 · 22 FP | +0.92 · 11 FP | -0.24 · 40 FP | +0.91 · 11 FP | +0.75 · 44 FP | +0.42 · 68 FP | +0.93 · 10 FP |
+
+Fault-free: false-alarm cost in piece-minutes per hour. Faults: recovery vs. no action. FP = repairs of healthy stations.
+
+- c1: 530 calls, verdicts {'insufficient_evidence': 129, 'normal': 488, 'degraded': 173, 'self_inflicted': 41}, problems {'no free twin': 18}
+- c2: 337 calls, verdicts {'insufficient_evidence': 240, 'degraded': 272, 'self_inflicted': 36, 'normal': 16}, problems {'no free twin': 49}
+- hybrid: 45 calls, verdicts {'degraded': 41, 'self_inflicted': 8}, problems none

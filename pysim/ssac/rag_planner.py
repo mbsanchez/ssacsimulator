@@ -98,7 +98,7 @@ class RAGPlanner(LLMPlanner):
     memory: OperationalMemory = field(default_factory=OperationalMemory)
 
     def system_prompt(self) -> str:
-        return SYSTEM_PROMPT + C2_SYSTEM_SUFFIX
+        return super().system_prompt() + C2_SYSTEM_SUFFIX
 
     def observe(self, ctx: PlanningContext) -> None:
         self.memory.sync_interventions(ctx.interventions.log)

@@ -41,14 +41,15 @@ HERE = Path(__file__).resolve().parent
 ROWS = HERE / "results" / "llm_sweep_rows.csv"
 CALLS = HERE / "results" / "llm_sweep_calls.csv"
 OUT = HERE / "results" / "stats.md"
+EXCESS = "excess_h24_min"   # design v2: primary horizon; --horizon 8 switches to the 8 h one
 TWINS = {"L0_S2", "L0_S4", "L0_S6", "L3_S35"}
 SHAPES = ["step", "intermittent", "drift"]
 
 
 def load():
     rows = list(csv.DictReader(ROWS.open()))
-    by = {(r["trace"], r["station"], r["shape"], r["planner"]): r for r in rows if r["station"]}
-    keys = sorted({k[:3] for k in by})
+    by = {(r["trace"], r["station"], r["shape"], r["onset_idx"], r["planner"]): r for r in rows if r["station"]}
+    keys = sorted({k[:4] for k in by})
     return by, keys
 
 
@@ -63,7 +64,7 @@ def holm(ps: list[float]) -> list[float]:
 
 
 def compare(by, keys, a, b, n_boot=10_000, seed=0):
-    ex = lambda k, p: float(by[k + (p,)]["excess_delay_min"])
+    ex = lambda k, p: float(by[k + (p,)][EXCESS])
     keys = [k for k in keys if k + (a,) in by and k + (b,) in by and k + ("noop",) in by]
     d = [ex(k, a) - ex(k, b) for k in keys]
     nonzero = [x for x in d if x != 0]
@@ -194,12 +195,16 @@ def main() -> int:
     ap.add_argument("--a", default="llm_c2:fable-5.1")
     ap.add_argument("--b", nargs="+", default=["rules_adapt_ctx", "rules_adapt", "rules_cal", "llm_c2", "llm_c1:fable-5.1"])
     ap.add_argument("--main-b", default="rules_adapt_ctx", help="comparison broken down by subgroup")
+    ap.add_argument("--horizon", type=int, choices=[8, 24], default=24, help="horizon in hours after the onset")
     args = ap.parse_args()
+    global EXCESS, OUT
+    if args.horizon == 8:
+        EXCESS, OUT = "excess_h8_min", OUT.with_name("stats_h8.md")
 
     by, keys = load()
     a = args.a
     out = [f"# Estadística pareada — A = `{a}`\n",
-           "Escenarios con fallo de las trazas reservadas, pareados por (traza, estación, forma del fallo). "
+           "Diseño v2. Escenarios con fallo de las trazas reservadas (3 inicios cada uno), pareados por (traza, estación, forma, inicio); retraso en exceso dentro del horizonte tras el inicio. "
            "Δ > 0: A recupera más. Wilcoxon sobre el retraso en exceso por escenario. IC por bootstrap "
            "estratificado por traza (10 000 remuestras, semilla 0). p Holm: ajuste por comparaciones múltiples "
            "dentro de cada tabla.\n",

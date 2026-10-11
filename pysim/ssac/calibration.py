@@ -19,12 +19,13 @@ def alarm_rates(
     data: SimulationData,
     detectors: tuple[str, ...],
     types: tuple[FailType, ...] = (FailType.STATION_FAILURE, FailType.STATION_DEGRADED),
+    processing_params: dict | None = None,
 ) -> dict[str, float]:
     """Alarms per simulated minute, per station, in a run with no faults."""
     model, errors = BusinessProcessModel.load(model_path)
     if errors:
         raise ValueError(errors)
-    engine = SimulationEngine(model, data, detectors=detectors)
+    engine = SimulationEngine(model, data, detectors=detectors, processing_params=processing_params)
     engine.run()
 
     counts: Counter[str] = Counter()

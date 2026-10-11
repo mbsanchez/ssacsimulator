@@ -1,7 +1,7 @@
 {
-  "runs": 10796,
+  "runs": 31532,
   "workers": 7,
-  "seconds": 842,
+  "seconds": 1569,
   "dev": "test_cases_0-100m.td",
   "held_out": [
     "test_cases_100m-200m.td",
@@ -37,5 +37,10 @@
     "history_min": 1440.0
   },
   "fault_factor": 3.0,
-  "fault_offset_min": 600.0
+  "design": "v2",
+  "horizons_min": [
+    480.0,
+    1440.0
+  ],
+  "primary_horizon_min": 1440.0
 }

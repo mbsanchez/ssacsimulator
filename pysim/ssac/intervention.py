@@ -35,7 +35,9 @@ leaving station S at time t):
   T instead (selection by CRC32 of the case id, so runs are reproducible). The
   piece then leaves from T, unaffected by S's faults. T absorbs extra load:
   + alpha * f_total * tau_T on every transition leaving T.
-* Maintenance(S, d): faults on S that began before t + d are cleared at t + d,
+* Maintenance(S, d): faults on S already active at t are cleared at t + d
+  (`repair_clears="active_at_start"`, the default since design v2; the v1
+  rule "begun_before_end" also cleared faults that began during the repair),
   and any reroute away from S is lifted then. During the repair, by
   `maintenance_mode`:
     "contingency" (default)  backup capacity outside the model does the work:
@@ -104,7 +106,7 @@ class EffectModel:
     # Which faults a completed repair clears: "begun_before_end" (any fault
     # that started before the repair ended, the original rule) or
     # "active_at_start" (only faults already active when the repair began).
-    repair_clears: str = "begun_before_end"
+    repair_clears: str = "active_at_start"
 
     def __post_init__(self) -> None:
         if self.maintenance_mode not in MAINTENANCE_MODES:
@@ -173,6 +175,7 @@ class InterventionState:
     piece_map: dict[str, dict[str, str]] = field(default_factory=dict)     # case -> {station: twin}
     log: list[AppliedAction] = field(default_factory=list)
     stats: InterventionStats = field(default_factory=InterventionStats)
+    extras: list[tuple[float, float]] = field(default_factory=list)       # (t_min, added minutes) per changed transition
 
     # ---- queries --------------------------------------------------------
 
@@ -186,7 +189,7 @@ class InterventionState:
                 continue
             if self.effects.repair_clears == "active_at_start":
                 repaired = any(
-                    f.start_min < start and end <= t_min for start, end in self.repairs.get(station, [])
+                    f.start_min <= start and end <= t_min for start, end in self.repairs.get(station, [])
                 )
             else:
                 repaired = any(
@@ -294,6 +297,8 @@ class InterventionState:
             self.stats.maintenance_wait_min += wait
             duration += wait
 
+        if duration != base:
+            self.extras.append((t_min, duration - base))
         if begin == event.begin_actor and end == event.end_actor and duration == base:
             return event
         return replace(event, begin_actor=begin, end_actor=end, transition_time=duration)
