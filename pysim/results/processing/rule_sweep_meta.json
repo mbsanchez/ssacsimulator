@@ -1,0 +1,52 @@
+{
+  "runs": 31532,
+  "workers": 5,
+  "seconds": 7610,
+  "dev": "test_cases_0-100m.td",
+  "held_out": [
+    "test_cases_100m-200m.td",
+    "test_cases_200m-300m.td",
+    "test_cases_500m-600m.td"
+  ],
+  "calibration": {
+    "test_cases_0-100m.td": "test_cases_100m-200m.td",
+    "test_cases_100m-200m.td": "test_cases_0-100m.td",
+    "test_cases_200m-300m.td": "test_cases_500m-600m.td",
+    "test_cases_500m-600m.td": "test_cases_200m-300m.td"
+  },
+  "windows": [
+    60.0,
+    120.0,
+    180.0,
+    240.0,
+    360.0
+  ],
+  "alphas": [
+    0.01,
+    0.001,
+    0.0001
+  ],
+  "histories": [
+    720.0,
+    1440.0,
+    2880.0
+  ],
+  "default": {
+    "window_min": 120.0,
+    "alpha": 0.001,
+    "history_min": 1440.0
+  },
+  "fault_factor": 3.0,
+  "design": "v2",
+  "analyze": "processing",
+  "processing_params": {
+    "window": 10,
+    "alpha": 0.001,
+    "refractory_min": 6.0
+  },
+  "horizons_min": [
+    480.0,
+    1440.0
+  ],
+  "primary_horizon_min": 1440.0
+}

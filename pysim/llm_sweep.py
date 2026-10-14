@@ -146,8 +146,12 @@ def run(args) -> None:
     cache: dict = {}
     t_start = time.perf_counter()
     finished = 0
-    for phase in phases:
-        for trace, station, shape, k, onset in todo:
+    # Onset-major order: every planner finishes onset 1 of every scenario (and
+    # the fault-free runs) before any planner starts onset 2, so that a quota
+    # cut still leaves complete, comparable blocks.
+    blocks = [[t for t in todo if t[3] in ("", 0)], [t for t in todo if t[3] == 1], [t for t in todo if t[3] == 2]]
+    for phase, block in [(p, b) for b in blocks for p in phases]:
+        for trace, station, shape, k, onset in block:
             if trace not in cache:
                 data = SimulationData.load(ROOT / trace)
                 m, _ = BusinessProcessModel.load(MODEL)

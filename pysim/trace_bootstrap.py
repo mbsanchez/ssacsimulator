@@ -22,13 +22,16 @@ from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 RESULTS = HERE / "results"
-PAIRS = [("llm_c2:fable-5.1", "rules_adapt_ctx"), ("llm_c2:fable-5.1", "rules_adapt"),
-         ("llm_c2", "rules_adapt_ctx"), ("hybrid:fable-5.1", "rules_adapt_ctx")]
+PAIRS = [("llm_c2:fable-5.1", "rules_adapt_ctx"), ("hybrid:fable-5.1", "rules_adapt_ctx"),
+         ("hybrid", "rules_adapt_ctx"), ("hybrid:fable-5.1", "llm_c2:fable-5.1"), ("llm_c2", "rules_adapt_ctx")]
 SHAPES = [("todas", None), ("escalón", "step"), ("intermitente", "intermittent"), ("deriva", "drift")]
 
 
 def main() -> int:
-    rows = list(csv.DictReader((RESULTS / "llm_sweep_rows.csv").open()))
+    import sys
+    from stats import read_all
+    res = Path(sys.argv[1]) if len(sys.argv) > 1 else RESULTS
+    rows = read_all(res / "llm_sweep_rows.csv")
     ex = {(r["trace"], r["station"], r["shape"], r["onset_idx"], r["planner"]): float(r["excess_h24_min"])
           for r in rows if r["station"]}
     traces = sorted({k[0] for k in ex})
@@ -67,7 +70,7 @@ def main() -> int:
             out.append(f"| {a} | {b} | {sname} | {d:+.3f} | {min(draws):+.3f} – {max(draws):+.3f} | "
                        f"{sum(x <= 0 for x in draws)}/27 | [{boot[249]:+.3f}, {boot[9749]:+.3f}] | "
                        + " | ".join(f"{x:+.3f}" for x in loo) + " |")
-    (RESULTS / "trace_bootstrap.md").write_text("\n".join(out) + "\n")
+    (res / "trace_bootstrap.md").write_text("\n".join(out) + "\n")
     print("\n".join(out))
     return 0
 

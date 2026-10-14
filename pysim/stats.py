@@ -46,8 +46,20 @@ TWINS = {"L0_S2", "L0_S4", "L0_S6", "L3_S35"}
 SHAPES = ["step", "intermittent", "drift"]
 
 
+def read_all(path: Path) -> list[dict]:
+    """Rows of a results directory plus those of its LLM sub-runs (e.g. qwen/),
+    which were written by separate processes."""
+    out = list(csv.DictReader(path.open()))
+    have = {x["planner"] for x in out}
+    for name in ("qwen", "qwen_v2"):      # the only LLM sub-runs (separate processes)
+        sub = path.parent / name / path.name
+        if sub.exists():
+            out += [r for r in csv.DictReader(sub.open()) if r["planner"] not in have]
+    return out
+
+
 def load():
-    rows = list(csv.DictReader(ROWS.open()))
+    rows = read_all(ROWS)
     by = {(r["trace"], r["station"], r["shape"], r["onset_idx"], r["planner"]): r for r in rows if r["station"]}
     keys = sorted({k[:4] for k in by})
     return by, keys
@@ -128,7 +140,7 @@ def _maint(r):
 
 def hits_section(by, keys) -> list[str]:
     """Acts on the faulty station at all, and specific hits for several windows."""
-    rows = list(csv.DictReader(ROWS.open()))
+    rows = read_all(ROWS)
     ff = {(r["trace"], r["planner"]): _maint(r) for r in rows if not r["station"]}
     planners = [p for p in ["rules_cal", "rules_adapt", "rules_adapt_ctx", "rules_twin", "llm_c1", "llm_c2", "hybrid",
                             "llm_c2:fable-5.1", "hybrid:fable-5.1"] if any(k + (p,) in by for k in keys)]
@@ -167,7 +179,7 @@ BROAD = re.compile(r"burst|line-wide|line wide|common|shared|simultaneous|many s
 def veto_section() -> list[str]:
     if not CALLS.exists():
         return []
-    calls = list(csv.DictReader(CALLS.open()))
+    calls = read_all(CALLS)
     out = ["\n## Razones de los vetos del híbrido\n",
            f"Veto: llamada en la que al menos una estación elegible no recibe acción. Estricto: `{STRICT.pattern}`. "
            f"Amplio: `{BROAD.pattern}`. Insensible a mayúsculas.\n",
@@ -195,14 +207,19 @@ def main() -> int:
     ap.add_argument("--a", default="llm_c2:fable-5.1")
     ap.add_argument("--b", nargs="+", default=["rules_adapt_ctx", "rules_adapt", "rules_cal", "llm_c2", "llm_c1:fable-5.1"])
     ap.add_argument("--main-b", default="rules_adapt_ctx", help="comparison broken down by subgroup")
+    ap.add_argument("--dir", type=Path, default=None, help="results directory (default: results/)")
     ap.add_argument("--horizon", type=int, choices=[8, 24], default=24, help="horizon in hours after the onset")
     args = ap.parse_args()
-    global EXCESS, OUT
+    global EXCESS, OUT, ROWS, CALLS
+    if args.dir is not None:
+        ROWS, CALLS, OUT = args.dir / "llm_sweep_rows.csv", args.dir / "llm_sweep_calls.csv", args.dir / "stats.md"
     if args.horizon == 8:
         EXCESS, OUT = "excess_h8_min", OUT.with_name("stats_h8.md")
 
     by, keys = load()
     a = args.a
+    present = {k[4] for k in by}
+    args.b = [b for b in args.b if b in present]
     out = [f"# Estadística pareada — A = `{a}`\n",
            "Diseño v2. Escenarios con fallo de las trazas reservadas (3 inicios cada uno), pareados por (traza, estación, forma, inicio); retraso en exceso dentro del horizonte tras el inicio. "
            "Δ > 0: A recupera más. Wilcoxon sobre el retraso en exceso por escenario. IC por bootstrap "
