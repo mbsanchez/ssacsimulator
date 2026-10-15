@@ -51,7 +51,7 @@ def main() -> int:
            "| A | B | Formas | Δ | exacto: mín – máx | exacto: P(Δ ≤ 0) | dos niveles: IC 95 % | sin 100m-200m | sin 200m-300m | sin 500m-600m |",
            "|---|---|---|---|---|---|---|---|---|---|"]
     for a, b in PAIRS:
-        if not any(k[3] == a for k in ex):
+        if not any(k[-1] == a for k in ex):
             continue
         for sname, shape in SHAPES:
             per = {t: keys(t, shape) for t in traces}
