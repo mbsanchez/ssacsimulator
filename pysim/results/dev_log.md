@@ -140,3 +140,14 @@ Fault-free: false-alarm cost in piece-minutes per hour. Faults: recovery vs. no 
 - c1: 530 calls, verdicts {'insufficient_evidence': 129, 'normal': 488, 'degraded': 173, 'self_inflicted': 41}, problems {'no free twin': 18}
 - c2: 337 calls, verdicts {'insufficient_evidence': 240, 'degraded': 272, 'self_inflicted': 36, 'normal': 16}, problems {'no free twin': 49}
 - hybrid: 45 calls, verdicts {'degraded': 41, 'self_inflicted': 8}, problems none
+
+## 2026-10-15 — Experimentos adicionales, registrados antes de ejecutarlos
+
+Motivo: el diseño tiene dos huecos: (i) no hay sensibilidad de los planificadores LLM al modelo de efectos y (ii) el contraste entre detectores del §7.5 no aísla el mecanismo de los vetos, porque cambian a la vez el detector, el párrafo del prompt que lo describe y la pista de las ráfagas. Ningún parámetro, prompt ni planificador existente cambia; todo se ejecuta en las tres trazas reservadas, diseño v2, horizonte 24 h, los mismos 216 escenarios.
+
+1. **Sensibilidad, fallo leve (k = 1,5).** Detector por estación, configuración elegida. Planificadores: sin acción, las reglas por defecto, híbrido Qwen, híbrido Fable. Resultados en `results/sens_k1.5/`.
+2. **Ablaciones del veto (híbrido Fable).** Planificador y conocimiento recuperado iguales; solo cambia lo indicado:
+   - (a) detector por estación, prompt v3 **sin** la pista «a burst of alarms shared by many stations at once» → `results/ablation_nocue/`;
+   - (b) detector por estación con el párrafo de alarmas **v2** (el del detector heredado) → `results/ablation_v2text/`;
+   - (c) detector **heredado** con el párrafo de alarmas **v3** → `results/ablation_legacy_v3text/`.
+   Medida principal: recuperación a 24 h; secundarias: llamadas con veto, vetos de la estación averiada y razones codificadas con la misma regla.

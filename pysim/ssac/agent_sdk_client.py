@@ -55,6 +55,7 @@ class AgentSDKClient:
     retries: int = 3
     retry_wait_s: float = 30.0
     cache_path: Path | None = None
+    offline: bool = False          # replay only: raise instead of calling the model on a cache miss
     allow_api_key: bool = False
     harness: str = "strict-mcp-v1"   # part of the cache key
     stats: dict = field(default_factory=lambda: {
@@ -101,6 +102,8 @@ class AgentSDKClient:
             if row is not None:
                 self.stats["cache_hits"] += 1
                 return self._wrap(row[0], row[1], row[2], row[3], True, key)
+        if getattr(self, "offline", False):
+            raise LLMError(f"offline replay: request not in the cache (key {key[:12]})")
 
         wait = self.retry_wait_s
         for attempt in range(self.retries + 1):

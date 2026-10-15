@@ -46,10 +46,16 @@ class ProcessingDetector:
     refresh_min: float = 60.0
     min_history: int = 20
     exclude: frozenset[str] = frozenset()
+    # "binomial" (the detector of the paper) or "threshold": a control with the
+    # same windows and the same processing regime but no statistical test, which
+    # flags a station when the median of its last `window` processing
+    # transitions exceeds `threshold_ratio` times the median of its history.
+    test: str = "binomial"
+    threshold_ratio: float = 1.3
 
     _t0: float | None = None
     _hist: dict[str, deque] = field(default_factory=dict)      # station -> (t, duration), history + window
-    _ref: dict[str, tuple[float, float, int, float]] = field(default_factory=dict)  # q75, p0, threshold, computed at
+    _ref: dict[str, tuple] = field(default_factory=dict)  # q75, p0, threshold, computed at, median
     _flagged_at: dict[str, float] = field(default_factory=dict)
     _pending: list[str] = field(default_factory=list)
     _thresholds: dict[tuple[int, float], int] = field(default_factory=dict)
@@ -73,8 +79,13 @@ class ProcessingDetector:
         if ref is None or t_min - ref[3] >= self.refresh_min:
             ref = self._reference(h, t_min)
             self._ref[station] = ref
-        q75, _p0, threshold, _ = ref
+        q75, threshold = ref[0], ref[2]
         recent = list(h)[-self.window:]
+        if self.test == "threshold":
+            r = sorted(d for _, d in recent)
+            if r[len(r) // 2] > self.threshold_ratio * ref[4]:
+                self._pending.append(station)
+            return
         exceed = sum(1 for _, d in recent if d > q75)
         if exceed >= threshold:
             self._pending.append(station)
@@ -88,7 +99,7 @@ class ProcessingDetector:
         key = (self.window, round(p0, 3))
         if key not in self._thresholds:
             self._thresholds[key] = binomial_threshold(self.window, key[1], self.alpha)
-        return q75, p0, self._thresholds[key], t_min
+        return q75, p0, self._thresholds[key], t_min, durs[len(durs) // 2]
 
     def flush(self, t_min: float) -> tuple[str, ...]:
         """Stations flagged in the batch that just ended."""

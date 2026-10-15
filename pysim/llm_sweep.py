@@ -67,7 +67,7 @@ ANALYZE = "legacy"
 PROCESSING_PARAMS: dict = {}
 
 ROW_FIELDS = ["trace", "station", "shape", "onset_idx", "planner", "model", "prompt_version", "excess_delay_min",
-              "excess_h8_min", "excess_h24_min",
+              "excess_h8_min", "excess_h24_min", "fault_h24_min", "actions_h24_min", "exposure_h24",
               "maintenances_on_fault", "maintenances_false", "first_action_latency_min", "pieces_rerouted",
               "maintenance_wait_min", "congestion_extra_min", "span_h", "calls", "cache_hits",
               "seconds", "finished", "fault_start_min", "maint_log"]
@@ -88,8 +88,19 @@ def scenarios(limit: int | None):
     return out[:limit] if limit else out
 
 
+FAULT_FACTOR = 3.0
+ABLATION: dict = {}   # alarm_text / burst_cue overrides (results/dev_log.md, 2026-10-15)
+
+
 def llm_kw(name: str) -> dict:
-    return {"analyze": ANALYZE, "prompt_version": LLM_VERSIONS[name]} if ANALYZE == "processing" else {}
+    kw = {"analyze": ANALYZE, "prompt_version": LLM_VERSIONS[name]} if ANALYZE == "processing" else {}
+    if ABLATION:
+        kw = {**kw, "analyze": ANALYZE, "prompt_version": LLM_VERSIONS[name]}
+        if "alarm_text" in ABLATION:
+            kw["alarm_text"] = ABLATION["alarm_text"]
+        if name == "hybrid" and "burst_cue" in ABLATION:
+            kw["burst_cue"] = ABLATION["burst_cue"]
+    return kw
 
 
 def label(name: str, tag: str) -> str:
@@ -123,9 +134,10 @@ def run(args) -> None:
     RESULTS.mkdir(exist_ok=True)
     if args.backend == "agent-sdk":
         from ssac.agent_sdk_client import AgentSDKClient
-        client = AgentSDKClient(model=args.model, effort=args.effort, cache_path=HERE / "cache" / "llm_cache.sqlite")
+        client = AgentSDKClient(model=args.model, effort=args.effort, cache_path=HERE / "cache" / "llm_cache.sqlite",
+                                offline=args.offline)
     else:
-        client = OllamaClient(model=args.model, cache_path=HERE / "cache" / "llm_cache.sqlite")
+        client = OllamaClient(model=args.model, cache_path=HERE / "cache" / "llm_cache.sqlite", offline=args.offline)
     done = load_done(args.model, args.tag)
     todo = scenarios(args.limit)
     # Phase 1: rules + C2 on every scenario; phase 2: C1. If the night runs
@@ -162,7 +174,7 @@ def run(args) -> None:
                 cache = {trace: (data, dict(ref.lifetimes), rates)}
             data, reference, rates = cache[trace]
             span_h = (data.events[-1].start_time - data.events[0].start_time) / 60.0
-            faults = [] if not station else [Fault(station, 3.0, onset, shape=shape)]
+            faults = [] if not station else [Fault(station, FAULT_FACTOR, onset, shape=shape)]
 
             for name in phase:
                 if (trace, station, shape, str(k), label(name, args.tag)) in done:
@@ -194,6 +206,11 @@ def run(args) -> None:
                     "excess_delay_min": "" if station else round(o.excess_delay_min, 3),
                     "excess_h8_min": round(hx.get(480.0, 0.0), 3) if station else "",
                     "excess_h24_min": round(hx.get(1440.0, 0.0), 3) if station else "",
+                    "fault_h24_min": round((o.fault_h or {}).get(1440.0, 0.0), 3) if station else "",
+                    "actions_h24_min": round((o.actions_h or {}).get(1440.0, 0.0), 3) if station else "",
+                    # transitions leaving the faulty station in the window: how much the fault can cost
+                    "exposure_h24": sum(1 for e in data.events if e.begin_actor == station
+                                        and onset <= e.start_time < onset + HORIZON_MIN) if station else "",
                     "maintenances_on_fault": (o.maintenances_on_fault_h or {}).get(HORIZON_MIN, 0) if station
                     else 0,
                     "maintenances_false": (o.maintenances_false_h or {}).get(HORIZON_MIN, 0) if station
@@ -325,6 +342,12 @@ def main() -> int:
                     help="subset of planners (smoke tests)")
     ap.add_argument("--summary", action="store_true")
     ap.add_argument("--results", type=Path, default=None, help="alternative results dir (smoke tests)")
+    ap.add_argument("--factor", type=float, default=3.0, help="fault factor k (sensitivity runs)")
+    ap.add_argument("--alarm-text", choices=["legacy", "processing"], default=None,
+                    help="ablation: describe the alarms as this detector regardless of --analyze")
+    ap.add_argument("--no-burst-cue", action="store_true", help="ablation: hybrid prompt without the burst cue")
+    ap.add_argument("--offline", action="store_true",
+                    help="replay from the response store only; a cache miss is an error, no model is called")
     ap.add_argument("--analyze", choices=["legacy", "processing"], default="legacy",
                     help="processing: per-station detector of results/detector_choice.json, prompt v3")
     args = ap.parse_args()
@@ -337,6 +360,16 @@ def main() -> int:
         ANALYZE = "processing"
         PROCESSING_PARAMS = json.loads((HERE / "results" / "detector_choice.json").read_text())
         LLM_VERSIONS.update({"llm_c1": "v3", "llm_c2": "v3", "hybrid": "v3+h1"})
+    global FAULT_FACTOR
+    FAULT_FACTOR = args.factor
+    if args.alarm_text or args.no_burst_cue:
+        base = {"legacy": "v2", "processing": "v3"}[args.alarm_text or args.analyze]
+        hyb = base + "+h1" + ("-nocue" if args.no_burst_cue else "")
+        LLM_VERSIONS.update({"llm_c1": base, "llm_c2": base, "hybrid": hyb})
+        if args.alarm_text:
+            ABLATION["alarm_text"] = args.alarm_text
+        if args.no_burst_cue:
+            ABLATION["burst_cue"] = False
         if args.results is None:
             args.results = HERE / "results" / "processing"
             args.results.mkdir(parents=True, exist_ok=True)

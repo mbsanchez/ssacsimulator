@@ -43,6 +43,8 @@ class Outcome:
     excess_h: dict[float, float] | None = None
     maintenances_on_fault_h: dict[float, int] | None = None
     maintenances_false_h: dict[float, int] | None = None
+    fault_h: dict[float, float] | None = None      # the fault's own delay left in the window
+    actions_h: dict[float, float] | None = None    # delay caused by the planner's actions in the window
 
 
 def outcome(
@@ -111,13 +113,17 @@ def _horizon(iv, maint, faulty, start, horizons_min) -> dict:
     if not horizons_min or start is None:
         return {}
     extras = iv.extras if iv is not None else []
-    ex, on, false = {}, {}, {}
+    parts = iv.parts if iv is not None else []
+    ex, on, false, fp, ap = {}, {}, {}, {}, {}
     for h in horizons_min:
         ex[h] = sum(x for t, x in extras if start <= t < start + h)
+        fp[h] = sum(f for t, f, _ in parts if start <= t < start + h)
+        ap[h] = sum(a for t, _, a in parts if start <= t < start + h)
         win = [d for d in maint if start <= d.t_min < start + h]
         on[h] = sum(1 for d in win if d.action.station in faulty)
         false[h] = len(win) - on[h]
-    return {"excess_h": ex, "maintenances_on_fault_h": on, "maintenances_false_h": false}
+    return {"excess_h": ex, "maintenances_on_fault_h": on, "maintenances_false_h": false,
+            "fault_h": fp, "actions_h": ap}
 
 
 def with_recovery(outcomes: list[Outcome], baseline: str = "noop") -> list[Outcome]:

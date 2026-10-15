@@ -371,3 +371,23 @@ def test_onsets_are_stable_and_inside_margins():
     assert a == onsets("t.td", "S", "step", 0.0, 10_000.0)
     assert a != onsets("t.td", "S", "drift", 0.0, 10_000.0)
     assert len(a) == 3 and all(1440.0 <= x <= 10_000.0 - 1440.0 for x in a)
+
+
+def test_processing_detector_flags_a_shifted_station_and_not_a_stable_one():
+    from ssac.processing_detector import ProcessingDetector
+    for test in ("binomial", "threshold"):
+        det = ProcessingDetector(window=10, alpha=1e-3, warmup_min=0.0, history_min=600.0, min_history=20, test=test)
+        t = 0.0
+        flagged = set()
+        for i in range(300):                 # stable history: 6 min, some 12 min
+            t += 1.0
+            det.observe("A", t, 12.0 if i % 4 == 0 else 6.0)
+            det.observe("B", t, 12.0 if i % 4 == 0 else 6.0)
+            flagged |= set(det.flush(t))
+        assert not flagged, test
+        for _ in range(20):                  # A slows down by +12 min, B does not
+            t += 1.0
+            det.observe("A", t, 18.0)
+            det.observe("B", t, 12.0 if int(t) % 4 == 0 else 6.0)
+            flagged |= set(det.flush(t))
+        assert flagged == {"A"}, (test, flagged)

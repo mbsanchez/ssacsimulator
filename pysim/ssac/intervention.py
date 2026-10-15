@@ -176,6 +176,9 @@ class InterventionState:
     log: list[AppliedAction] = field(default_factory=list)
     stats: InterventionStats = field(default_factory=InterventionStats)
     extras: list[tuple[float, float]] = field(default_factory=list)       # (t_min, added minutes) per changed transition
+    # the same additions split into the fault's own delay and the cost of actions
+    # (contingency, waiting for a repair in stop mode, congestion on a twin)
+    parts: list[tuple[float, float, float]] = field(default_factory=list)  # (t_min, fault, actions)
 
     # ---- queries --------------------------------------------------------
 
@@ -270,6 +273,7 @@ class InterventionState:
         #    its processing time (never by the waiting part of the transition).
         base = event.transition_time
         duration = base
+        fault_part = 0.0
         tau = self.service_time(begin)
         repair = self.repair_window(begin, t_min)
         contingency = repair is not None and self.effects.maintenance_mode == "contingency"
@@ -285,6 +289,7 @@ class InterventionState:
                 extra = (k - 1.0) * tau
                 self.stats.fault_extra_min += extra
                 duration += extra
+                fault_part = extra
 
         share = self.inbound_share(begin)
         if share > 0:
@@ -299,6 +304,7 @@ class InterventionState:
 
         if duration != base:
             self.extras.append((t_min, duration - base))
+            self.parts.append((t_min, fault_part, duration - base - fault_part))
         if begin == event.begin_actor and end == event.end_actor and duration == base:
             return event
         return replace(event, begin_actor=begin, end_actor=end, transition_time=duration)

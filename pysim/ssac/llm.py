@@ -63,6 +63,7 @@ class OllamaClient:
     retries: int = 4              # transport failures retried before giving up
     retry_wait_s: float = 30.0    # doubled after each failed attempt
     cache_path: Path | None = None
+    offline: bool = False          # replay only: raise instead of calling the model on a cache miss
     stats: dict = field(default_factory=lambda: {"calls": 0, "cache_hits": 0, "seconds": 0.0, "invalid_json": 0})
 
     def __post_init__(self) -> None:
@@ -92,6 +93,8 @@ class OllamaClient:
             if row is not None:
                 self.stats["cache_hits"] += 1
                 return self._wrap(row[0], row[1], row[2], row[3], True, key)
+        if getattr(self, "offline", False):
+            raise LLMError(f"offline replay: request not in the cache (key {key[:12]})")
 
         body = json.dumps({**request, "stream": False}).encode()
         req = urllib.request.Request(f"{self.url}/api/chat", body, {"Content-Type": "application/json"})

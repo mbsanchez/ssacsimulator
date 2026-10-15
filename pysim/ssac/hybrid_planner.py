@@ -40,8 +40,15 @@ class HybridPlanner(RAGPlanner):
     name: str = "hybrid"
     prompt_version: str = "v2+h1"
 
+    burst_cue: bool = True    # ablation: False drops "a burst of alarms shared by many stations at once"
+
     def system_prompt(self) -> str:
-        return super().system_prompt() + HYBRID_SUFFIX
+        suffix = HYBRID_SUFFIX
+        if not self.burst_cue:
+            cue = ", a burst of alarms shared by many stations at once."
+            assert cue in suffix
+            suffix = suffix.replace(cue, ".")
+        return super().system_prompt() + suffix
 
     def plan(self, ctx: PlanningContext) -> list[Action]:
         self.observe(ctx)

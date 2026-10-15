@@ -128,13 +128,14 @@ class LLMPlanner:
     name: str = "llm_c1"
     prompt_version: str = PROMPT_VERSION
     analyze: str = "legacy"   # "processing": the per-station detector, prompt v3
+    alarm_text: str | None = None   # ablation: describe the alarms as "legacy" or "processing" regardless of `analyze`
     calls: list[CallRecord] = field(default_factory=list)
     _last_acted: dict[str, float] = field(default_factory=dict)
 
     # ---- prompt ---------------------------------------------------------
 
     def system_prompt(self) -> str:
-        if self.analyze == "processing":
+        if (self.alarm_text or self.analyze) == "processing":
             return SYSTEM_PROMPT.replace(LEGACY_ALARMS, PROCESSING_ALARMS)
         return SYSTEM_PROMPT
 
