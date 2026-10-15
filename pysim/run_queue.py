@@ -21,21 +21,24 @@ PY = str(HERE / ".venv" / "bin" / "python")
 SDK = ["--backend", "agent-sdk", "--model", "claude-fable-5-1"]
 # (results dir, extra arguments, planners) in order of priority (results/dev_log.md, 2026-10-15)
 JOBS = [
+    ("results/newtraces", ["--analyze", "processing", "--new-traces"],
+     ["noop", "rules_cal", "rules_adapt", "rules_twin", "rules_adapt_ctx", "rules_cal_rt", "rules_adapt_ctx_rt", "hybrid"]),
     ("results/ablation_nocue", ["--analyze", "processing", "--no-burst-cue"], ["noop", "hybrid"]),
     ("results/sens_k1.5", ["--analyze", "processing", "--factor", "1.5"],
      ["noop", "rules_cal", "rules_adapt", "rules_twin", "rules_adapt_ctx", "hybrid"]),
     ("results/ablation_v2text", ["--analyze", "processing", "--alarm-text", "legacy"], ["noop", "hybrid"]),
     ("results/ablation_legacy_v3text", ["--analyze", "legacy", "--alarm-text", "processing"], ["noop", "hybrid"]),
 ]
-ROWS_PER_PLANNER = 219
+def rows_per_planner(extra: list[str]) -> int:
+    return (5 if "--new-traces" in extra else 3) * 73      # traces x (72 fault scenarios + 1 fault-free)
 
 
-def complete(d: Path, planners: list[str]) -> bool:
+def complete(d: Path, planners: list[str], extra: list[str]) -> bool:
     f = d / "llm_sweep_rows.csv"
     if not f.exists():
         return False
     n = Counter(r["planner"].split(":")[0] for r in csv.DictReader(f.open()))
-    return all(n[p] >= ROWS_PER_PLANNER for p in planners)
+    return all(n[p] >= rows_per_planner(extra) for p in planners)
 
 
 def wait_for_reset(text: str) -> bool:
@@ -58,16 +61,20 @@ def wait_for_reset(text: str) -> bool:
 
 
 def main() -> int:
+    import sys
+    only = sys.argv[1:]          # optional: results dirs to run, e.g. results/newtraces
     for path, extra, planners in JOBS:
+        if only and path not in only:
+            continue
         d = HERE / path
         d.mkdir(parents=True, exist_ok=True)
-        while not complete(d, planners):
+        while not complete(d, planners, extra):
             print(f"{dt.datetime.now():%m-%d %H:%M} running {path}", flush=True)
             log = d / "run.log"
             with log.open("a") as fh:
                 rc = subprocess.run([PY, "llm_sweep.py", *SDK, *extra, "--planners", *planners, "--results", str(d)],
                                     cwd=HERE, stdout=fh, stderr=subprocess.STDOUT).returncode
-            if complete(d, planners):
+            if complete(d, planners, extra):
                 break
             tail = log.read_text()[-3000:]
             if rc != 0 and "limit" in tail:

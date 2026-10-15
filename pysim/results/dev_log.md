@@ -151,3 +151,15 @@ Motivo: el diseño tiene dos huecos: (i) no hay sensibilidad de los planificador
    - (b) detector por estación con el párrafo de alarmas **v2** (el del detector heredado) → `results/ablation_v2text/`;
    - (c) detector **heredado** con el párrafo de alarmas **v3** → `results/ablation_legacy_v3text/`.
    Medida principal: recuperación a 24 h; secundarias: llamadas con veto, vetos de la estación averiada y razones codificadas con la misma regla.
+
+## 2026-10-15 — Validación en trazas nuevas (C), registrada antes de generarlas
+
+**Origen.** Ficheros `test_date.csv` de la competición Kaggle *Bosch Production Line Performance*. `DataSets I4.0/PreProcess/make_traces.py` es un port a Python 3 de `PreProcessTestData.py` y `createTestFileChunk.py`; regenera las cuatro trazas existentes fila a fila y en el mismo orden (salvo la columna `prediction`, que sin el modelo de Keras de 2020 vale −1 en todas las filas y solo alimenta el detector de fallos predichos, que no usa ningún planificador).
+
+**Trazas nuevas.** Las cinco primeras porciones de 100 000 eventos no usadas, en orden: 300m–400m, 400m–500m, 600m–700m, 700m–800m y 800m–900m. Se descarta, sin sustituirla, una traza que dure menos de 48 h (no admite los márgenes de 24 h del diseño v2) o en la que alguna de las ocho estaciones no tenga transiciones de proceso.
+
+**Todo congelado.** Diseño v2, los mismos 8 estaciones × 3 formas × 3 inicios (semilla por nombre de escenario), horizonte de 24 h, detector por estación con `results/detector_choice.json`, prompts v3 y v3+h1, modelos y caché como en la evaluación reservada. Tasas base de la regla calibrada y de C2: aprendidas en la traza de desarrollo (0–100m), sin fallos.
+
+**Planificadores.** Sin acción; reglas calibrada, adaptativa, adaptativa + veto y solo gemelas con sus valores por defecto; las reglas reajustadas en desarrollo (calibrada `w=240 a=1e-4`; adaptativa + veto `w=240 a=1e-3 h=1440`); híbrido Qwen; híbrido Fable. C2 Fable, si la cuota lo permite, después.
+
+**Medidas.** Primaria: recuperación a 24 h y, por la objeción de los escenarios sin coste, también la recuperación sobre los escenarios cuyo coste sin acción es positivo, con la descomposición fallo / acciones. Estadística: diferencia híbrido Fable − mejor regla con bootstrap estratificado y por trazas (ahora 5 conglomerados).

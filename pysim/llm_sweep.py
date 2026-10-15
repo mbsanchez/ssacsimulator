@@ -59,7 +59,10 @@ HELD_OUT = {
 STATIONS_TWIN = ["L0_S2", "L0_S4", "L0_S6", "L3_S35"]
 STATIONS_NO_TWIN = ["L0_S1", "L0_S8", "L3_S29", "L3_S33"]
 SHAPES = ["step", "intermittent", "drift"]
-RULES = ["noop", "rules_cal", "rules_adapt", "rules_twin", "rules_adapt_ctx"]
+RULES = ["noop", "rules_cal", "rules_adapt", "rules_twin", "rules_adapt_ctx", "rules_cal_rt", "rules_adapt_ctx_rt"]
+# validation on new traces (results/dev_log.md, 2026-10-15): base rates from the development trace
+NEW_TRACES = {f"test_cases_{n}.td": "test_cases_0-100m.td"
+              for n in ("300m-400m", "400m-500m", "600m-700m", "700m-800m", "800m-900m")}
 LLMS = ["llm_c2", "llm_c1", "hybrid"]
 LLM_VERSIONS = {"llm_c1": PROMPT_VERSION, "llm_c2": PROMPT_VERSION, "hybrid": "v2+h1"}
 # --analyze processing: the per-station detector (results/detector_choice.json) and prompt v3
@@ -185,6 +188,12 @@ def run(args) -> None:
                     "rules_adapt": lambda: AdaptiveRulePlanner(),
                     "rules_twin": lambda: TwinOnlyRulePlanner(),
                     "rules_adapt_ctx": lambda: ContextAdaptiveRulePlanner(),
+                    # re-tuned on the development trace (results/processing/rule_sweep_summary.md)
+                    "rules_cal_rt": lambda: CalibratedRulePlanner(rates, window_min=240.0, alpha=1e-4,
+                                                                  name="rules_cal_rt"),
+                    "rules_adapt_ctx_rt": lambda: ContextAdaptiveRulePlanner(window_min=240.0, alpha=1e-3,
+                                                                             history_min=1440.0,
+                                                                             name="rules_adapt_ctx_rt"),
                     "hybrid": lambda: HybridPlanner(client, baseline_per_min=rates, **llm_kw("hybrid")),
                     "llm_c1": lambda: LLMPlanner(client, **llm_kw("llm_c1")),
                     "llm_c2": lambda: RAGPlanner(client, baseline_per_min=rates, **llm_kw("llm_c2")),
@@ -343,6 +352,7 @@ def main() -> int:
     ap.add_argument("--summary", action="store_true")
     ap.add_argument("--results", type=Path, default=None, help="alternative results dir (smoke tests)")
     ap.add_argument("--factor", type=float, default=3.0, help="fault factor k (sensitivity runs)")
+    ap.add_argument("--new-traces", action="store_true", help="the five new validation traces instead of the held-out ones")
     ap.add_argument("--alarm-text", choices=["legacy", "processing"], default=None,
                     help="ablation: describe the alarms as this detector regardless of --analyze")
     ap.add_argument("--no-burst-cue", action="store_true", help="ablation: hybrid prompt without the burst cue")
@@ -362,6 +372,9 @@ def main() -> int:
         LLM_VERSIONS.update({"llm_c1": "v3", "llm_c2": "v3", "hybrid": "v3+h1"})
     global FAULT_FACTOR
     FAULT_FACTOR = args.factor
+    if args.new_traces:
+        HELD_OUT.clear()
+        HELD_OUT.update(NEW_TRACES)
     if args.alarm_text or args.no_burst_cue:
         base = {"legacy": "v2", "processing": "v3"}[args.alarm_text or args.analyze]
         hyb = base + "+h1" + ("-nocue" if args.no_burst_cue else "")
