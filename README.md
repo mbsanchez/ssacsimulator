@@ -13,7 +13,7 @@ The original 2020 simulator (Qt/C++) is described in M. Sánchez et al., *Comput
 | `SSACSimulator/`, `QGVCore/`, `SSACSimulator.pro`, `CMakeLists.txt` | The original 2020 Qt/C++ simulator (Monitor and Analyze only). |
 | `pysim/` | Headless Python port of the simulator, the closed MAPE-K loop (action space, symbolic validator, fault injection, effect model), the rule-based and LLM planners, and the experiment scripts. See `pysim/README.md` (in Spanish). |
 | `pysim/results/` | Every result reported in the paper: per-run rows, per-LLM-call decisions with the model's stated reasons, summaries, statistics, and the development log of every prompt version. |
-| `paper/` | LaTeX source of the manuscript (`main.tex`), a Spanish reading version (`main_es.tex`), `figures.py` (regenerates every figure from `pysim/results/`) and the prompts used for the adversarial review. |
+| `paper/` | LaTeX source of the manuscript (`main.tex`), a Spanish reading version (`main_es.tex`) and `figures.py` (regenerates every figure from `pysim/results/`). |
 | `DataSets I4.0/PreProcess/` | The 2020 preprocessing scripts that derive the process model and event traces from the Bosch dataset. |
 
 ## Data
