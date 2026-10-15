@@ -236,7 +236,7 @@ def main() -> int:
     groups = [("con gemela", [k for k in keys if k[1] in TWINS]),
               ("sin gemela", [k for k in keys if k[1] not in TWINS])]
     out += table([(name, compare(by, ks, a, b)) for name, ks in groups])
-    out += ["\nPor traza (exploratorio, sin ajuste):\n"]
+    out += ["\nPor traza (exploratorio; p Holm sobre las tres trazas):\n"]
     traces = sorted({k[0] for k in keys})
     out += table([(f"traza {t.split('_')[2][:-3]}", compare(by, [k for k in keys if k[0] == t], a, b)) for t in traces])
     out += ["\nPor traza y forma (Δ recuperación agregada; A mejor / n):\n",

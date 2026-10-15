@@ -27,7 +27,7 @@ Con y sin gemela (familia aparte):
 | con gemela | 108 | 32 | 46 | 0.0937 | 0.134 | -0.22 | -0.068 | [-0.158, +0.015] |
 | sin gemela | 108 | 37 | 46 | 0.067 | 0.134 | -0.23 | -0.064 | [-0.122, -0.014] |
 
-Por traza (exploratorio, sin ajuste):
+Por traza (exploratorio; p Holm sobre las tres trazas):
 
 | Comparación | n | A mejor | B mejor | p (Wilcoxon) | p Holm | r | Δ recuperación agregada | IC 95% |
 |---|---|---|---|---|---|---|---|---|

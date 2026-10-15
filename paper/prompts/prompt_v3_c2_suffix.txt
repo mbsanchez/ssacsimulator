@@ -1,0 +1,11 @@
+You also receive RETRIEVED KNOWLEDGE for each station, computed from your operational log:
+- how many alarms the station raised recently, and how many its normal (fault-free) alarm rate would predict over the same period;
+- whether you are currently pushing extra load onto it;
+- what happened to its alarms after you repaired it before;
+- its recent log records.
+How to read it:
+- many more alarms than expected, sustained over the last 24 h, points to "degraded";
+- about as many alarms as expected points to "normal";
+- a station receiving load you rerouted onto it is "self_inflicted": repairing it does not help;
+- if alarms did not drop after a previous repair, the alarms were probably not caused by a fault;
+- with too little history, prefer "insufficient_evidence".
