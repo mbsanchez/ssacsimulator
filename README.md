@@ -35,16 +35,19 @@ The derived files are available from the corresponding author on request, to hol
 
 ```sh
 cd pysim && python3 -m venv .venv && .venv/bin/pip install scipy matplotlib pytest
-.venv/bin/python stats.py                 # results/stats.md
-.venv/bin/python trace_bootstrap.py       # results/trace_bootstrap.md
-.venv/bin/python rule_sweep.py --summary  # results/rule_sweep_summary.md
-.venv/bin/python llm_sweep.py --summary   # results/llm_sweep_summary.md
+.venv/bin/python paper_tables.py                     # results/paper_tables.md: every number of the paper's tables
+.venv/bin/python stats.py --dir results/processing --a hybrid:fable-5.1 \
+    --b rules_adapt_ctx rules_adapt rules_cal hybrid llm_c2:fable-5.1   # paired statistics
+.venv/bin/python trace_bootstrap.py results/processing   # trace-level uncertainty
+.venv/bin/python compare_retuned.py                    # hybrids against re-tuned rules
 cd ../paper && ../pysim/.venv/bin/python figures.py
 ```
 
 and run the tests that do not need the data (`.venv/bin/pytest tests`; those that need it are skipped).
 
-**With the data**: `sweep.py` and `rule_sweep.py` rerun the rule-based experiments in minutes. The LLM experiments (`llm_sweep.py`, `dev_llm.py`) need a local Ollama server with `qwen2.5:7b`, or the Claude Agent SDK for Claude Fable 5.1; their decisions are not bit-reproducible, which is why every decision and stated reason is stored in `pysim/results/llm_sweep_calls.csv`.
+Results layout (evaluation design v2, see `pysim/results/dev_log.md`): `pysim/results/processing/` holds the main results, with the per-station detector; `pysim/results/` the same evaluation with the legacy detector; `pysim/results/v1/` the first, superseded design.
+
+**With the data**: `detector_dev.py`, `rule_sweep.py --analyze processing`, `sweep.py --analyze processing` and `detection_rates.py` rerun the rule-based experiments in minutes to an hour. The LLM experiments (`llm_sweep.py --analyze processing`, `dev_llm.py`) need a local Ollama server with `qwen2.5:7b`, or the Claude Agent SDK for Claude Fable 5.1; their decisions are not bit-reproducible, which is why every decision and stated reason is stored in `pysim/results/**/llm_sweep_calls.csv`.
 
 The simulator itself uses only the Python standard library; the statistics and figures use SciPy and matplotlib.
 
