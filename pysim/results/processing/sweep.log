@@ -1,0 +1,478 @@
+8160 runs on 7 workers; computing references and calibration...
+  done in 2s
+  20/8160  7s elapsed, ~2901s left
+  40/8160  13s elapsed, ~2589s left
+  60/8160  18s elapsed, ~2475s left
+  80/8160  25s elapsed, ~2483s left
+  100/8160  31s elapsed, ~2483s left
+  120/8160  37s elapsed, ~2458s left
+  140/8160  42s elapsed, ~2391s left
+  160/8160  48s elapsed, ~2395s left
+  180/8160  54s elapsed, ~2411s left
+  200/8160  61s elapsed, ~2414s left
+  220/8160  67s elapsed, ~2415s left
+  240/8160  73s elapsed, ~2419s left
+  260/8160  80s elapsed, ~2424s left
+  280/8160  86s elapsed, ~2410s left
+  300/8160  91s elapsed, ~2392s left
+  320/8160  98s elapsed, ~2394s left
+  340/8160  104s elapsed, ~2399s left
+  360/8160  111s elapsed, ~2397s left
+  380/8160  116s elapsed, ~2384s left
+  400/8160  122s elapsed, ~2370s left
+  420/8160  127s elapsed, ~2343s left
+  440/8160  134s elapsed, ~2344s left
+  460/8160  140s elapsed, ~2335s left
+  480/8160  146s elapsed, ~2334s left
+  500/8160  152s elapsed, ~2325s left
+  520/8160  159s elapsed, ~2330s left
+  540/8160  165s elapsed, ~2322s left
+  560/8160  170s elapsed, ~2302s left
+  580/8160  176s elapsed, ~2299s left
+  600/8160  182s elapsed, ~2294s left
+  620/8160  188s elapsed, ~2287s left
+  640/8160  194s elapsed, ~2274s left
+  660/8160  199s elapsed, ~2267s left
+  680/8160  206s elapsed, ~2262s left
+  700/8160  211s elapsed, ~2253s left
+  720/8160  217s elapsed, ~2244s left
+  740/8160  223s elapsed, ~2238s left
+  760/8160  229s elapsed, ~2231s left
+  780/8160  236s elapsed, ~2230s left
+  800/8160  242s elapsed, ~2226s left
+  820/8160  248s elapsed, ~2223s left
+  840/8160  254s elapsed, ~2215s left
+  860/8160  260s elapsed, ~2210s left
+  880/8160  266s elapsed, ~2204s left
+  900/8160  272s elapsed, ~2196s left
+  920/8160  278s elapsed, ~2190s left
+  940/8160  285s elapsed, ~2188s left
+  960/8160  291s elapsed, ~2183s left
+  980/8160  296s elapsed, ~2168s left
+  1000/8160  302s elapsed, ~2165s left
+  1020/8160  309s elapsed, ~2166s left
+  1040/8160  315s elapsed, ~2156s left
+  1060/8160  321s elapsed, ~2152s left
+  1080/8160  331s elapsed, ~2169s left
+  1100/8160  340s elapsed, ~2181s left
+  1120/8160  349s elapsed, ~2192s left
+  1140/8160  358s elapsed, ~2203s left
+  1160/8160  367s elapsed, ~2212s left
+  1180/8160  376s elapsed, ~2222s left
+  1200/8160  385s elapsed, ~2234s left
+  1220/8160  394s elapsed, ~2244s left
+  1240/8160  404s elapsed, ~2252s left
+  1260/8160  413s elapsed, ~2261s left
+  1280/8160  423s elapsed, ~2272s left
+  1300/8160  432s elapsed, ~2280s left
+  1320/8160  441s elapsed, ~2285s left
+  1340/8160  452s elapsed, ~2299s left
+  1360/8160  462s elapsed, ~2310s left
+  1380/8160  472s elapsed, ~2319s left
+  1400/8160  481s elapsed, ~2324s left
+  1420/8160  491s elapsed, ~2329s left
+  1440/8160  501s elapsed, ~2337s left
+  1460/8160  509s elapsed, ~2334s left
+  1480/8160  515s elapsed, ~2325s left
+  1500/8160  522s elapsed, ~2317s left
+  1520/8160  528s elapsed, ~2308s left
+  1540/8160  538s elapsed, ~2313s left
+  1560/8160  547s elapsed, ~2315s left
+  1580/8160  557s elapsed, ~2321s left
+  1600/8160  566s elapsed, ~2322s left
+  1620/8160  576s elapsed, ~2326s left
+  1640/8160  585s elapsed, ~2326s left
+  1660/8160  595s elapsed, ~2329s left
+  1680/8160  604s elapsed, ~2329s left
+  1700/8160  614s elapsed, ~2332s left
+  1720/8160  623s elapsed, ~2332s left
+  1740/8160  631s elapsed, ~2328s left
+  1760/8160  640s elapsed, ~2327s left
+  1780/8160  649s elapsed, ~2326s left
+  1800/8160  658s elapsed, ~2326s left
+  1820/8160  667s elapsed, ~2324s left
+  1840/8160  678s elapsed, ~2327s left
+  1860/8160  688s elapsed, ~2331s left
+  1880/8160  697s elapsed, ~2329s left
+  1900/8160  707s elapsed, ~2329s left
+  1920/8160  717s elapsed, ~2329s left
+  1940/8160  723s elapsed, ~2318s left
+  1960/8160  729s elapsed, ~2307s left
+  1980/8160  735s elapsed, ~2294s left
+  2000/8160  741s elapsed, ~2284s left
+  2020/8160  747s elapsed, ~2270s left
+  2040/8160  753s elapsed, ~2260s left
+  2060/8160  756s elapsed, ~2240s left
+  2080/8160  757s elapsed, ~2214s left
+  2100/8160  760s elapsed, ~2192s left
+  2120/8160  762s elapsed, ~2171s left
+  2140/8160  765s elapsed, ~2152s left
+  2160/8160  767s elapsed, ~2130s left
+  2180/8160  769s elapsed, ~2108s left
+  2200/8160  771s elapsed, ~2088s left
+  2220/8160  773s elapsed, ~2069s left
+  2240/8160  775s elapsed, ~2047s left
+  2260/8160  775s elapsed, ~2024s left
+  2280/8160  777s elapsed, ~2003s left
+  2300/8160  779s elapsed, ~1985s left
+  2320/8160  782s elapsed, ~1968s left
+  2340/8160  784s elapsed, ~1951s left
+  2360/8160  787s elapsed, ~1935s left
+  2380/8160  791s elapsed, ~1920s left
+  2400/8160  793s elapsed, ~1904s left
+  2420/8160  795s elapsed, ~1885s left
+  2440/8160  797s elapsed, ~1869s left
+  2460/8160  801s elapsed, ~1855s left
+  2480/8160  804s elapsed, ~1841s left
+  2500/8160  806s elapsed, ~1824s left
+  2520/8160  808s elapsed, ~1809s left
+  2540/8160  810s elapsed, ~1793s left
+  2560/8160  814s elapsed, ~1780s left
+  2580/8160  816s elapsed, ~1764s left
+  2600/8160  818s elapsed, ~1748s left
+  2620/8160  820s elapsed, ~1735s left
+  2640/8160  823s elapsed, ~1722s left
+  2660/8160  826s elapsed, ~1708s left
+  2680/8160  829s elapsed, ~1695s left
+  2700/8160  832s elapsed, ~1683s left
+  2720/8160  835s elapsed, ~1670s left
+  2740/8160  838s elapsed, ~1657s left
+  2760/8160  840s elapsed, ~1643s left
+  2780/8160  842s elapsed, ~1630s left
+  2800/8160  845s elapsed, ~1617s left
+  2820/8160  847s elapsed, ~1603s left
+  2840/8160  847s elapsed, ~1587s left
+  2860/8160  849s elapsed, ~1574s left
+  2880/8160  852s elapsed, ~1562s left
+  2900/8160  855s elapsed, ~1550s left
+  2920/8160  856s elapsed, ~1537s left
+  2940/8160  859s elapsed, ~1525s left
+  2960/8160  861s elapsed, ~1513s left
+  2980/8160  865s elapsed, ~1503s left
+  3000/8160  866s elapsed, ~1490s left
+  3020/8160  868s elapsed, ~1477s left
+  3040/8160  871s elapsed, ~1467s left
+  3060/8160  874s elapsed, ~1457s left
+  3080/8160  876s elapsed, ~1445s left
+  3100/8160  877s elapsed, ~1432s left
+  3120/8160  879s elapsed, ~1419s left
+  3140/8160  880s elapsed, ~1407s left
+  3160/8160  882s elapsed, ~1395s left
+  3180/8160  882s elapsed, ~1382s left
+  3200/8160  885s elapsed, ~1371s left
+  3220/8160  888s elapsed, ~1362s left
+  3240/8160  890s elapsed, ~1351s left
+  3260/8160  891s elapsed, ~1340s left
+  3280/8160  893s elapsed, ~1329s left
+  3300/8160  896s elapsed, ~1319s left
+  3320/8160  899s elapsed, ~1311s left
+  3340/8160  900s elapsed, ~1298s left
+  3360/8160  901s elapsed, ~1287s left
+  3380/8160  902s elapsed, ~1275s left
+  3400/8160  905s elapsed, ~1267s left
+  3420/8160  907s elapsed, ~1257s left
+  3440/8160  909s elapsed, ~1247s left
+  3460/8160  911s elapsed, ~1238s left
+  3480/8160  914s elapsed, ~1229s left
+  3500/8160  915s elapsed, ~1218s left
+  3520/8160  916s elapsed, ~1207s left
+  3540/8160  917s elapsed, ~1197s left
+  3560/8160  919s elapsed, ~1188s left
+  3580/8160  922s elapsed, ~1179s left
+  3600/8160  923s elapsed, ~1169s left
+  3620/8160  924s elapsed, ~1158s left
+  3640/8160  924s elapsed, ~1148s left
+  3660/8160  925s elapsed, ~1138s left
+  3680/8160  927s elapsed, ~1129s left
+  3700/8160  930s elapsed, ~1121s left
+  3720/8160  933s elapsed, ~1113s left
+  3740/8160  936s elapsed, ~1106s left
+  3760/8160  938s elapsed, ~1098s left
+  3780/8160  941s elapsed, ~1090s left
+  3800/8160  943s elapsed, ~1082s left
+  3820/8160  946s elapsed, ~1075s left
+  3840/8160  948s elapsed, ~1066s left
+  3860/8160  949s elapsed, ~1058s left
+  3880/8160  953s elapsed, ~1051s left
+  3900/8160  955s elapsed, ~1044s left
+  3920/8160  957s elapsed, ~1035s left
+  3940/8160  958s elapsed, ~1026s left
+  3960/8160  960s elapsed, ~1018s left
+  3980/8160  962s elapsed, ~1011s left
+  4000/8160  965s elapsed, ~1003s left
+  4020/8160  966s elapsed, ~994s left
+  4040/8160  968s elapsed, ~987s left
+  4060/8160  970s elapsed, ~980s left
+  4080/8160  972s elapsed, ~972s left
+  4100/8160  976s elapsed, ~966s left
+  4120/8160  976s elapsed, ~958s left
+  4140/8160  978s elapsed, ~949s left
+  4160/8160  979s elapsed, ~941s left
+  4180/8160  983s elapsed, ~935s left
+  4200/8160  984s elapsed, ~928s left
+  4220/8160  985s elapsed, ~920s left
+  4240/8160  987s elapsed, ~912s left
+  4260/8160  989s elapsed, ~906s left
+  4280/8160  991s elapsed, ~898s left
+  4300/8160  991s elapsed, ~890s left
+  4320/8160  992s elapsed, ~882s left
+  4340/8160  994s elapsed, ~875s left
+  4360/8160  997s elapsed, ~869s left
+  4380/8160  997s elapsed, ~861s left
+  4400/8160  998s elapsed, ~853s left
+  4420/8160  1000s elapsed, ~846s left
+  4440/8160  1001s elapsed, ~839s left
+  4460/8160  1002s elapsed, ~831s left
+  4480/8160  1003s elapsed, ~824s left
+  4500/8160  1004s elapsed, ~817s left
+  4520/8160  1007s elapsed, ~811s left
+  4540/8160  1008s elapsed, ~804s left
+  4560/8160  1009s elapsed, ~796s left
+  4580/8160  1010s elapsed, ~789s left
+  4600/8160  1012s elapsed, ~784s left
+  4620/8160  1014s elapsed, ~777s left
+  4640/8160  1015s elapsed, ~770s left
+  4660/8160  1016s elapsed, ~763s left
+  4680/8160  1018s elapsed, ~757s left
+  4700/8160  1019s elapsed, ~750s left
+  4720/8160  1020s elapsed, ~743s left
+  4740/8160  1021s elapsed, ~737s left
+  4760/8160  1023s elapsed, ~731s left
+  4780/8160  1025s elapsed, ~725s left
+  4800/8160  1026s elapsed, ~718s left
+  4820/8160  1027s elapsed, ~711s left
+  4840/8160  1029s elapsed, ~706s left
+  4860/8160  1032s elapsed, ~700s left
+  4880/8160  1032s elapsed, ~694s left
+  4900/8160  1033s elapsed, ~687s left
+  4920/8160  1034s elapsed, ~681s left
+  4940/8160  1036s elapsed, ~675s left
+  4960/8160  1036s elapsed, ~669s left
+  4980/8160  1038s elapsed, ~663s left
+  5000/8160  1039s elapsed, ~657s left
+  5020/8160  1043s elapsed, ~652s left
+  5040/8160  1044s elapsed, ~646s left
+  5060/8160  1045s elapsed, ~640s left
+  5080/8160  1047s elapsed, ~635s left
+  5100/8160  1049s elapsed, ~629s left
+  5120/8160  1050s elapsed, ~624s left
+  5140/8160  1051s elapsed, ~618s left
+  5160/8160  1053s elapsed, ~612s left
+  5180/8160  1055s elapsed, ~607s left
+  5200/8160  1057s elapsed, ~602s left
+  5220/8160  1058s elapsed, ~596s left
+  5240/8160  1059s elapsed, ~590s left
+  5260/8160  1062s elapsed, ~585s left
+  5280/8160  1064s elapsed, ~580s left
+  5300/8160  1064s elapsed, ~574s left
+  5320/8160  1065s elapsed, ~569s left
+  5340/8160  1067s elapsed, ~564s left
+  5360/8160  1071s elapsed, ~559s left
+  5380/8160  1071s elapsed, ~554s left
+  5400/8160  1072s elapsed, ~548s left
+  5420/8160  1072s elapsed, ~542s left
+  5440/8160  1074s elapsed, ~537s left
+  5460/8160  1075s elapsed, ~532s left
+  5480/8160  1076s elapsed, ~526s left
+  5500/8160  1076s elapsed, ~521s left
+  5520/8160  1078s elapsed, ~516s left
+  5540/8160  1080s elapsed, ~511s left
+  5560/8160  1081s elapsed, ~505s left
+  5580/8160  1082s elapsed, ~500s left
+  5600/8160  1085s elapsed, ~496s left
+  5620/8160  1086s elapsed, ~491s left
+  5640/8160  1088s elapsed, ~486s left
+  5660/8160  1089s elapsed, ~481s left
+  5680/8160  1092s elapsed, ~477s left
+  5700/8160  1094s elapsed, ~472s left
+  5720/8160  1094s elapsed, ~467s left
+  5740/8160  1095s elapsed, ~462s left
+  5760/8160  1096s elapsed, ~457s left
+  5780/8160  1098s elapsed, ~452s left
+  5800/8160  1099s elapsed, ~447s left
+  5820/8160  1100s elapsed, ~442s left
+  5840/8160  1100s elapsed, ~437s left
+  5860/8160  1101s elapsed, ~432s left
+  5880/8160  1102s elapsed, ~427s left
+  5900/8160  1103s elapsed, ~422s left
+  5920/8160  1105s elapsed, ~418s left
+  5940/8160  1107s elapsed, ~414s left
+  5960/8160  1108s elapsed, ~409s left
+  5980/8160  1108s elapsed, ~404s left
+  6000/8160  1109s elapsed, ~399s left
+  6020/8160  1111s elapsed, ~395s left
+  6040/8160  1113s elapsed, ~391s left
+  6060/8160  1114s elapsed, ~386s left
+  6080/8160  1116s elapsed, ~382s left
+  6100/8160  1118s elapsed, ~377s left
+  6120/8160  1120s elapsed, ~373s left
+  6140/8160  1124s elapsed, ~370s left
+  6160/8160  1128s elapsed, ~366s left
+  6180/8160  1131s elapsed, ~362s left
+  6200/8160  1134s elapsed, ~359s left
+  6220/8160  1138s elapsed, ~355s left
+  6240/8160  1141s elapsed, ~351s left
+  6260/8160  1143s elapsed, ~347s left
+  6280/8160  1146s elapsed, ~343s left
+  6300/8160  1150s elapsed, ~339s left
+  6320/8160  1153s elapsed, ~336s left
+  6340/8160  1156s elapsed, ~332s left
+  6360/8160  1159s elapsed, ~328s left
+  6380/8160  1163s elapsed, ~324s left
+  6400/8160  1166s elapsed, ~321s left
+  6420/8160  1169s elapsed, ~317s left
+  6440/8160  1172s elapsed, ~313s left
+  6460/8160  1175s elapsed, ~309s left
+  6480/8160  1178s elapsed, ~305s left
+  6500/8160  1182s elapsed, ~302s left
+  6520/8160  1185s elapsed, ~298s left
+  6540/8160  1188s elapsed, ~294s left
+  6560/8160  1192s elapsed, ~291s left
+  6580/8160  1195s elapsed, ~287s left
+  6600/8160  1198s elapsed, ~283s left
+  6620/8160  1201s elapsed, ~279s left
+  6640/8160  1204s elapsed, ~276s left
+  6660/8160  1207s elapsed, ~272s left
+  6680/8160  1210s elapsed, ~268s left
+  6700/8160  1213s elapsed, ~264s left
+  6720/8160  1217s elapsed, ~261s left
+  6740/8160  1220s elapsed, ~257s left
+  6760/8160  1223s elapsed, ~253s left
+  6780/8160  1226s elapsed, ~250s left
+  6800/8160  1229s elapsed, ~246s left
+  6820/8160  1232s elapsed, ~242s left
+  6840/8160  1235s elapsed, ~238s left
+  6860/8160  1238s elapsed, ~235s left
+  6880/8160  1242s elapsed, ~231s left
+  6900/8160  1246s elapsed, ~227s left
+  6920/8160  1249s elapsed, ~224s left
+  6940/8160  1252s elapsed, ~220s left
+  6960/8160  1255s elapsed, ~216s left
+  6980/8160  1258s elapsed, ~213s left
+  7000/8160  1261s elapsed, ~209s left
+  7020/8160  1264s elapsed, ~205s left
+  7040/8160  1267s elapsed, ~202s left
+  7060/8160  1270s elapsed, ~198s left
+  7080/8160  1273s elapsed, ~194s left
+  7100/8160  1276s elapsed, ~191s left
+  7120/8160  1280s elapsed, ~187s left
+  7140/8160  1283s elapsed, ~183s left
+  7160/8160  1287s elapsed, ~180s left
+  7180/8160  1289s elapsed, ~176s left
+  7200/8160  1293s elapsed, ~172s left
+  7220/8160  1297s elapsed, ~169s left
+  7240/8160  1300s elapsed, ~165s left
+  7260/8160  1303s elapsed, ~162s left
+  7280/8160  1306s elapsed, ~158s left
+  7300/8160  1310s elapsed, ~154s left
+  7320/8160  1313s elapsed, ~151s left
+  7340/8160  1316s elapsed, ~147s left
+  7360/8160  1320s elapsed, ~143s left
+  7380/8160  1323s elapsed, ~140s left
+  7400/8160  1326s elapsed, ~136s left
+  7420/8160  1329s elapsed, ~132s left
+  7440/8160  1332s elapsed, ~129s left
+  7460/8160  1335s elapsed, ~125s left
+  7480/8160  1338s elapsed, ~122s left
+  7500/8160  1342s elapsed, ~118s left
+  7520/8160  1345s elapsed, ~114s left
+  7540/8160  1349s elapsed, ~111s left
+  7560/8160  1353s elapsed, ~107s left
+  7580/8160  1356s elapsed, ~104s left
+  7600/8160  1359s elapsed, ~100s left
+  7620/8160  1362s elapsed, ~97s left
+  7640/8160  1365s elapsed, ~93s left
+  7660/8160  1368s elapsed, ~89s left
+  7680/8160  1372s elapsed, ~86s left
+  7700/8160  1375s elapsed, ~82s left
+  7720/8160  1378s elapsed, ~79s left
+  7740/8160  1381s elapsed, ~75s left
+  7760/8160  1384s elapsed, ~71s left
+  7780/8160  1388s elapsed, ~68s left
+  7800/8160  1391s elapsed, ~64s left
+  7820/8160  1394s elapsed, ~61s left
+  7840/8160  1397s elapsed, ~57s left
+  7860/8160  1401s elapsed, ~53s left
+  7880/8160  1404s elapsed, ~50s left
+  7900/8160  1408s elapsed, ~46s left
+  7920/8160  1412s elapsed, ~43s left
+  7940/8160  1414s elapsed, ~39s left
+  7960/8160  1417s elapsed, ~36s left
+  7980/8160  1421s elapsed, ~32s left
+  8000/8160  1424s elapsed, ~28s left
+  8020/8160  1427s elapsed, ~25s left
+  8040/8160  1431s elapsed, ~21s left
+  8060/8160  1433s elapsed, ~18s left
+  8080/8160  1437s elapsed, ~14s left
+  8100/8160  1439s elapsed, ~11s left
+  8120/8160  1442s elapsed, ~7s left
+  8140/8160  1446s elapsed, ~4s left
+  8160/8160  1449s elapsed, ~0s left
+
+## Coste de las falsas alarmas — corridas SIN fallo
+
+Minutos-pieza perdidos por hora de operación, solo por actuar sobre ruido. Punto central.
+
+| Traza | rules_naive | rules_cal | rules_adapt | rules_twin |
+|---|---|---|---|---|
+| test_cases_0-100m.td | 709 | 197 | 76 | 359 |
+| test_cases_100m-200m.td | 232 | 88 | 119 | 122 |
+| test_cases_200m-300m.td | 201 | 116 | 80 | 91 |
+| test_cases_500m-600m.td | 254 | 116 | 96 | 112 |
+
+## Rejilla central — recuperación agregada (escenarios con beneficio neto > 0)
+
+Diseño v2. Recuperación agregada a 24 h = 1 − Σ exceso en [t0, t0+24 h) (política) / ídem (no hacer nada). Detector legacy; fallo x3, reparación 60 min, α = 0,5, contingencia; 3 inicios por escenario.
+
+| Grupo | rules_naive | rules_cal | rules_adapt | rules_twin |
+|---|---|---|---|---|
+| todas |  -0.03 (84/288) |  +0.53 (136/288) |  +0.59 (137/288) |  -0.06 (63/288) |
+| con gemela |  -0.21 (34/144) |  +0.46 (62/144) |  +0.54 (65/144) |  +0.38 (63/144) |
+| sin gemela |  +0.09 (50/144) |  +0.57 (74/144) |  +0.62 (72/144) |  -0.36 (0/144) |
+| fallo step |  +0.21 (43/96) |  +0.62 (46/96) |  +0.66 (46/96) |  +0.06 (26/96) |
+| fallo intermittent |  -0.93 (4/96) |  +0.18 (40/96) |  +0.30 (40/96) |  -0.51 (8/96) |
+| fallo drift |  +0.09 (37/96) |  +0.57 (50/96) |  +0.65 (51/96) |  -0.01 (29/96) |
+| traza 0-100m |  +0.12 (38/72) |  +0.77 (71/72) |  +0.86 (72/72) |  +0.02 (27/72) |
+| traza 100m-200m |  -0.18 (18/72) |  +0.33 (38/72) |  +0.24 (33/72) |  -0.11 (19/72) |
+| traza 200m-300m |  -0.47 (12/72) |  -0.00 (12/72) |  +0.10 (12/72) |  -0.36 (5/72) |
+| traza 500m-600m |  -0.26 (16/72) |  -0.08 (15/72) |  +0.10 (20/72) |  -0.22 (12/72) |
+
+## Sensibilidad uno-a-uno — recuperación agregada
+
+Todas las formas de fallo. Cada fila cambia un único parámetro respecto al punto central.
+
+| Variación | rules_cal | rules_adapt | rules_twin |
+|---|---|---|---|
+| **central** |  +0.53 (136/288) |  +0.59 (137/288) |  -0.06 (63/288) |
+| alpha=0 |  +0.67 (156/288) |  +0.71 (161/288) |  +0.26 (92/288) |
+| alpha=1 |  +0.40 (119/288) |  +0.47 (123/288) |  -0.35 (40/288) |
+| factor=1.5 |  -0.55 (47/288) |  -0.29 (60/288) |  -1.38 (5/288) |
+| factor=5 |  +0.68 (155/288) |  +0.72 (156/288) |  +0.14 (78/288) |
+| mode=stop |  -1.11 (29/288) |  -0.91 (40/288) |  -0.51 (35/288) |
+| repair_min=15 |  +0.77 (166/288) |  +0.80 (170/288) |  +0.27 (93/288) |
+| repair_min=240 |  -0.43 (54/288) |  -0.13 (73/288) |  -1.24 (13/288) |
+
+### Por forma de fallo — `rules_adapt` / `rules_cal`
+
+| Variación | step | intermittent | drift |
+|---|---|---|---|
+| **central** | +0.66 / +0.62 | +0.30 / +0.18 | +0.65 / +0.57 |
+| alpha=0 | +0.74 / +0.72 | +0.55 / +0.49 | +0.75 / +0.69 |
+| alpha=1 | +0.57 / +0.54 | +0.05 / -0.06 | +0.54 / +0.45 |
+| factor=1.5 | +0.04 / -0.13 | -1.54 / -1.98 | -0.12 / -0.40 |
+| factor=5 | +0.73 / +0.71 | +0.57 / +0.52 | +0.77 / +0.72 |
+| mode=stop | -0.42 / -0.50 | -2.88 / -3.27 | -0.62 / -0.86 |
+| repair_min=15 | +0.80 / +0.78 | +0.74 / +0.69 | +0.83 / +0.79 |
+| repair_min=240 | +0.16 / -0.03 | -1.15 / -1.74 | -0.03 / -0.32 |
+
+## Desglose del coste — rejilla central, medias por escenario (minutos-pieza)
+
+| Planificador | exceso | mant. sobre fallo | mant. falsos | latencia 1ª acción (min) | contingencia | congestión |
+|---|---|---|---|---|---|---|
+| noop | 9,544 | 0.0 | 0.0 | nan | 0 | 0 |
+| rules_naive | 9,824 | 1.5 | 21.2 | 142 | 16,122 | 7,014 |
+| rules_cal | 4,524 | 0.8 | 7.0 | 43 | 5,922 | 3,468 |
+| rules_adapt | 3,897 | 0.7 | 6.3 | 56 | 4,318 | 2,281 |
+| rules_twin | 10,136 | 0.7 | 9.2 | 152 | 2,158 | 8,877 |
+
+wrote results/processing/sweep.csv, sweep_summary.md, sweep_meta.json  (1451s total)

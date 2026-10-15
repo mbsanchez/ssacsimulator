@@ -10,7 +10,7 @@ import csv
 import random
 from pathlib import Path
 
-from scipy.stats import wilcoxon
+from scipy.stats import rankdata, wilcoxon
 
 from stats import read_all
 
@@ -28,7 +28,7 @@ traces = sorted({k[0] for k in ks})
 out = ["# Híbridos frente a reglas reajustadas — detector por estación, diseño v2\n",
        "Δ = recuperación a 24 h (híbrido) − ídem (regla); IC 95 % bootstrap estratificado por traza (10 000, semilla 0); "
        "Wilcoxon emparejado sobre el exceso a 24 h por escenario.\n",
-       "| Híbrido | Regla | Δ | IC 95 % | híbrido mejor en | p |", "|---|---|---|---|---|---|"]
+       "| Híbrido | Regla | Δ | IC 95 % | híbrido mejor / peor | p | r |", "|---|---|---|---|---|---|---|"]
 for a in ("hybrid:fable-5.1", "hybrid"):
     for p, cfg, desc in RULES:
         b = f"{p}|{cfg}"
@@ -38,8 +38,13 @@ for a in ("hybrid:fable-5.1", "hybrid"):
         strata = {t: [k for k in ks if k[0] == t] for t in traces}
         rng = random.Random(0)
         boot = sorted(d([rng.choice(strata[t]) for t in traces for _ in strata[t]]) for _ in range(10_000))
-        pv = wilcoxon([L[k + (a,)] - RS[k + (b,)] for k in ks if L[k + (a,)] != RS[k + (b,)]]).pvalue
-        better = sum(L[k + (a,)] < RS[k + (b,)] for k in ks)
-        out.append(f"| {a} | {desc} `{cfg}` | {d(ks):+.3f} | [{boot[249]:+.3f}, {boot[9749]:+.3f}] | {better}/{len(ks)} | {pv:.2g} |")
+        dd = [L[k + (a,)] - RS[k + (b,)] for k in ks if L[k + (a,)] != RS[k + (b,)]]
+        pv = wilcoxon(dd).pvalue
+        rk = rankdata([abs(x) for x in dd])
+        r = (2 * sum(q for q, x in zip(rk, dd) if x < 0) - sum(rk)) / sum(rk)
+        better = sum(x < 0 for x in dd)
+        worse = sum(x > 0 for x in dd)
+        out.append(f"| {a} | {desc} `{cfg}` | {d(ks):+.3f} | [{boot[249]:+.3f}, {boot[9749]:+.3f}] | {better} / {worse} "
+                   f"| {pv:.2g} | {r:+.2f} |")
 (D / "compare_retuned.md").write_text("\n".join(out) + "\n")
 print("\n".join(out))

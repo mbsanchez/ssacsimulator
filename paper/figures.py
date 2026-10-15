@@ -21,7 +21,7 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt  # noqa: E402
 
 HERE = Path(__file__).resolve().parent
-RESULTS = HERE.parent / "pysim" / "results"
+RESULTS = HERE.parent / "pysim" / "results" / "processing"   # per-station detector, design v2
 OUT = HERE / "figures"
 LANG = "en"
 
@@ -31,12 +31,13 @@ ES = {
     "Rule: adaptive + load veto": "Regla: adaptativa + veto por carga",
     "Hybrid (Qwen 7B)": "Híbrido (Qwen 7B)",
     "Hybrid (Fable 5.1)": "Híbrido (Fable 5.1)",
-    "Pooled recovery on held-out traces (95% stratified bootstrap CI)":
-        "Recuperación agregada, trazas reservadas (IC 95%, bootstrap)",
+    "24-h recovery on held-out traces (95% stratified bootstrap CI)":
+        "Recuperación a 24 h, trazas reservadas (IC 95%, bootstrap)",
+    "Rule: twin-only (control)": "Regla: solo gemelas (control)",
     "False-alarm cost without faults (piece-min/h, mean of held-out traces)":
         "Coste de falsas alarmas sin fallos (min-pieza/h, media de las trazas reservadas)",
-    "Pooled recovery with faults": "Recuperación agregada con fallos",
-    "Pooled recovery": "Recuperación agregada",
+    "24-h recovery with faults": "Recuperación a 24 h con fallos",
+    "24-h recovery": "Recuperación a 24 h",
     "Rule-based": "Reglas",
     "Step": "Escalón", "Intermittent": "Intermitente", "Drift": "Deriva",
 }
@@ -73,6 +74,7 @@ PLANNERS = [  # (row name, label, family)
     ("rules_cal", "Rule: calibrated", "rules"),
     ("rules_adapt", "Rule: adaptive", "rules"),
     ("rules_adapt_ctx", "Rule: adaptive + load veto", "rules"),
+    ("rules_twin", "Rule: twin-only (control)", "rules"),
     ("llm_c1", "C1 (Qwen 7B)", "qwen"),
     ("llm_c2", "C2 RAG (Qwen 7B)", "qwen"),
     ("hybrid", "Hybrid (Qwen 7B)", "qwen"),
@@ -89,7 +91,10 @@ plt.rcParams.update({
 
 
 def load():
-    rows = list(csv.DictReader((RESULTS / "llm_sweep_rows.csv").open()))
+    import sys
+    sys.path.insert(0, str(HERE.parent / "pysim"))
+    from stats import read_all
+    rows = read_all(RESULTS / "llm_sweep_rows.csv")
     fault = {(r["trace"], r["station"], r["shape"], r["onset_idx"], r["planner"]): float(r["excess_h24_min"])
              for r in rows if r["station"]}
     free = {(r["trace"], r["planner"]): float(r["excess_delay_min"]) / float(r["span_h"])
@@ -134,7 +139,7 @@ def fig_recovery(fault, keys):
         ax.text(hi + 0.02, i, num(v), va="center", fontsize=8, color=INK)
     ax.set_yticks(range(len(data)), [T(d[3]) for d in data], color=INK)
     ax.axvline(0, color=INK2, linewidth=0.8)
-    ax.set_xlabel(T("Pooled recovery on held-out traces (95% stratified bootstrap CI)"))
+    ax.set_xlabel(T("24-h recovery on held-out traces (95% stratified bootstrap CI)"))
     decimal_axes(ax, "x")
     ax.set_xlim(min(d[1] for d in data) - 0.05, max(d[2] for d in data) + 0.15)
     style(ax)
@@ -146,18 +151,21 @@ def fig_recovery(fault, keys):
 def fig_tradeoff(fault, free, keys):
     traces = sorted({k[0] for k in keys})
     fig, ax = plt.subplots(figsize=(6.3, 3.4))
-    offsets = {"rules_adapt": (6, -10), "rules_adapt_ctx": (6, 4), "rules_cal": (6, 3),
-               "llm_c2:fable-5.1": (6, 3), "hybrid": (6, -3), "hybrid:fable-5.1": (6, 3),
-               "llm_c1": (6, -3), "llm_c2": (6, 3), "llm_c1:fable-5.1": (6, -6)}
+    # (dx, dy) in points and horizontal alignment of each label
+    offsets = {"rules_adapt": (7, 7, "left"), "rules_adapt_ctx": (7, 4, "left"), "rules_cal": (7, -8, "left"),
+               "llm_c2:fable-5.1": (-7, 0, "right"), "hybrid": (7, 0, "left"), "hybrid:fable-5.1": (7, 0, "left"),
+               "llm_c1": (7, 0, "left"), "llm_c2": (-7, 0, "right"), "llm_c1:fable-5.1": (7, 0, "left"),
+               "rules_twin": (7, 0, "left")}
     for p, label, fam in PLANNERS:
         c, m = FAMILY[fam]
         x = sum(free[(t, p)] for t in traces) / len(traces)
         y = pooled(fault, keys, p)
         ax.plot(x, y, marker=m, markersize=7, color=c, markeredgecolor="white", markeredgewidth=1.0, linestyle="none")
-        ax.annotate(T(label), (x, y), xytext=offsets.get(p, (6, 3)), textcoords="offset points",
-                    fontsize=7.5, color=INK, va="center")
+        dx, dy, ha = offsets.get(p, (7, 0, "left"))
+        ax.annotate(T(label), (x, y), xytext=(dx, dy), textcoords="offset points",
+                    fontsize=7.5, color=INK, va="center", ha=ha)
     ax.set_xlabel(T("False-alarm cost without faults (piece-min/h, mean of held-out traces)"))
-    ax.set_ylabel(T("Pooled recovery with faults"))
+    ax.set_ylabel(T("24-h recovery with faults"))
     decimal_axes(ax, "y")
     ax.axhline(0, color=INK2, linewidth=0.8)
     ax.spines[["top", "right"]].set_visible(False)
@@ -166,7 +174,7 @@ def fig_tradeoff(fault, free, keys):
     ax.set_xlim(-8, 230)
     handles = [plt.Line2D([], [], marker=FAMILY[f][1], color=FAMILY[f][0], linestyle="none", markersize=6, label=T(l))
                for f, l in (("rules", "Rule-based"), ("qwen", "LLM: Qwen 2.5 7B"), ("fable", "LLM: Claude Fable 5.1"))]
-    ax.legend(handles=handles, frameon=False, loc="lower right", fontsize=7.5)
+    ax.legend(handles=handles, frameon=False, loc="upper right", fontsize=7.5)
     fig.tight_layout()
     fig.savefig(out_dir() / "fig_tradeoff.pdf")
     plt.close(fig)
@@ -174,8 +182,8 @@ def fig_tradeoff(fault, free, keys):
 
 def fig_shapes(fault, keys):
     chosen = [("rules_adapt_ctx", "Rule: adaptive + load veto", "rules"),
-              ("llm_c2", "C2 RAG (Qwen 7B)", "qwen"),
-              ("llm_c2:fable-5.1", "C2 RAG (Fable 5.1)", "fable")]
+              ("hybrid", "Hybrid (Qwen 7B)", "qwen"),
+              ("hybrid:fable-5.1", "Hybrid (Fable 5.1)", "fable")]
     fig, ax = plt.subplots(figsize=(6.3, 2.8))
     width = 0.26
     for j, (p, label, fam) in enumerate(chosen):
@@ -191,9 +199,9 @@ def fig_shapes(fault, keys):
                     va="bottom" if v >= 0 else "top", fontsize=7, color=INK)
     ax.set_xticks(range(len(SHAPES)), [T(s.capitalize()) for s in SHAPES], color=INK)
     ax.axhline(0, color=INK2, linewidth=0.8)
-    ax.set_ylabel(T("Pooled recovery"))
+    ax.set_ylabel(T("24-h recovery"))
     decimal_axes(ax, "y")
-    ax.set_ylim(-1.45, 1.05)
+    ax.set_ylim(-0.6, 0.8)
     ax.spines[["top", "right"]].set_visible(False)
     ax.grid(axis="y", color=GRID, linewidth=0.6)
     ax.set_axisbelow(True)

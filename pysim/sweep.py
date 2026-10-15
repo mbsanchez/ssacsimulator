@@ -97,7 +97,9 @@ class Task:
 _W: dict = {}
 
 
-def _init(references: dict[str, dict[str, float]], rates: dict[str, dict[str, float]]) -> None:
+def _init(references: dict[str, dict[str, float]], rates: dict[str, dict[str, float]],
+          detectors: tuple[str, ...] = DETECTORS, params: dict | None = None) -> None:
+    _W["detectors"], _W["params"] = detectors, params
     _W["references"] = references
     _W["rates"] = rates
     _W["data"] = {}
@@ -139,7 +141,8 @@ def run_task(task: Task) -> dict:
         faults=faults,
         planner=_planner(task.planner, task.trace, task.cfg),
         effects=effects,
-        detectors=DETECTORS,
+        detectors=_W["detectors"],
+        processing_params=_W["params"],
     )
     engine.run(until_min=task.onset + HORIZON_MIN if faults else None)
     o = outcome(task.planner, engine, _W["references"][task.trace], faults, horizons_min=HORIZONS_MIN)
@@ -171,8 +174,8 @@ def _reference(trace: str) -> dict[str, float]:
     return dict(engine.lifetimes)
 
 
-def _rates(calib_trace: str) -> dict[str, float]:
-    return alarm_rates(MODEL, SimulationData.load(ROOT / calib_trace), DETECTORS)
+def _rates(calib_trace: str, detectors=DETECTORS, params=None) -> dict[str, float]:
+    return alarm_rates(MODEL, SimulationData.load(ROOT / calib_trace), detectors, processing_params=params)
 
 
 def build_tasks(traces, stations) -> list[Task]:
@@ -270,7 +273,7 @@ def summarize(rows: list[dict], twins: set[str]) -> str:
 
     out.append("\n## Rejilla central — recuperación agregada (escenarios con beneficio neto > 0)\n")
     out.append("Diseño v2. Recuperación agregada a 24 h = 1 − Σ exceso en [t0, t0+24 h) (política) / ídem (no hacer nada). "
-               "Detector legacy; fallo x3, reparación 60 min, α = 0,5, contingencia; 3 inicios por escenario.\n")
+               "Detector según `--analyze`; fallo x3, reparación 60 min, α = 0,5, contingencia; 3 inicios por escenario.\n")
     out.append("| Grupo | " + " | ".join(planners) + " |")
     out.append("|---|" + "---|" * len(planners))
     groups = [("todas", lambda r: True),
@@ -326,8 +329,14 @@ def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--workers", type=int, default=max(1, (os.cpu_count() or 2) - 1))
     ap.add_argument("--quick", action="store_true")
+    ap.add_argument("--analyze", choices=["legacy", "processing"], default="legacy",
+                    help="processing: per-station detector of results/detector_choice.json")
     ap.add_argument("--out", type=Path, default=Path(__file__).resolve().parent / "results")
     args = ap.parse_args()
+    detectors, params = DETECTORS, None
+    if args.analyze == "processing":
+        detectors = ("processing",)
+        params = json.loads((Path(__file__).resolve().parent / "results" / "detector_choice.json").read_text())
 
     traces = list(TRACES)[:1] if args.quick else list(TRACES)
     stations = ([STATIONS_TWIN[0], STATIONS_NO_TWIN[0]] if args.quick
@@ -345,14 +354,14 @@ def main() -> int:
     print(f"{len(tasks)} runs on {args.workers} workers; computing references and calibration...")
     with ProcessPoolExecutor(args.workers) as pool:
         ref_f = {t: pool.submit(_reference, t) for t in traces}
-        rate_f = {t: pool.submit(_rates, TRACES[t]) for t in traces}
+        rate_f = {t: pool.submit(_rates, TRACES[t], detectors, params) for t in traces}
         references = {t: f.result() for t, f in ref_f.items()}
         rates = {t: f.result() for t, f in rate_f.items()}
     print(f"  done in {time.perf_counter() - t0:.0f}s")
 
     rows: list[dict] = []
     t1 = time.perf_counter()
-    with ProcessPoolExecutor(args.workers, initializer=_init, initargs=(references, rates)) as pool:
+    with ProcessPoolExecutor(args.workers, initializer=_init, initargs=(references, rates, detectors, params)) as pool:
         futures = [pool.submit(run_task, t) for t in tasks]
         for i, f in enumerate(as_completed(futures), 1):
             rows.append(f.result())
@@ -373,7 +382,7 @@ def main() -> int:
         "runs": len(rows), "workers": args.workers, "quick": args.quick,
         "seconds": round(time.perf_counter() - t0), "central": asdict(CENTRAL),
         "oat": OAT, "traces": TRACES, "stations_twin": STATIONS_TWIN,
-        "stations_no_twin": STATIONS_NO_TWIN, "detectors": DETECTORS,
+        "stations_no_twin": STATIONS_NO_TWIN, "detectors": detectors, "processing_params": params,
         "min_fault_cost": MIN_FAULT_COST, "effect_model": "additive, scaled by tau_S",
         "design": "v2", "horizons_min": HORIZONS_MIN, "primary_horizon_min": HORIZON_MIN,
     }, indent=2))
