@@ -1,1 +1,4 @@
 paper/review/review_bundle.zip
+.DS_Store
+__pycache__/
+*.pyc
