@@ -163,3 +163,22 @@ Motivo: el diseño tiene dos huecos: (i) no hay sensibilidad de los planificador
 **Planificadores.** Sin acción; reglas calibrada, adaptativa, adaptativa + veto y solo gemelas con sus valores por defecto; las reglas reajustadas en desarrollo (calibrada `w=240 a=1e-4`; adaptativa + veto `w=240 a=1e-3 h=1440`); híbrido Qwen; híbrido Fable. C2 Fable, si la cuota lo permite, después.
 
 **Medidas.** Primaria: recuperación a 24 h y, por la objeción de los escenarios sin coste, también la recuperación sobre los escenarios cuyo coste sin acción es positivo, con la descomposición fallo / acciones. Estadística: diferencia híbrido Fable − mejor regla con bootstrap estratificado y por trazas (ahora 5 conglomerados).
+
+## 2026-10-16 — Nota sobre el periodo refractario (añadida a posteriori)
+
+La enmienda del 11-10 fijaba un periodo refractario de 60 min. Antes de seleccionar el detector en desarrollo se añadió el refractario a la rejilla (6, 30 y 60 min; `detector_dev.py`, `results/detector_dev.md`), porque con 60 min una estación no puede acumular las 3 alarmas en 120 min que exigen las reglas. Se eligió 6 min en la traza de desarrollo. Este cambio no se registró entonces; se deja constancia aquí.
+
+## 2026-10-16 — Controles del veto, sensibilidad de los híbridos, validación de C2 y réplicas (registrados antes de ejecutarlos)
+
+Diseño v2, detector por estación (`results/detector_choice.json`), prompts congelados (v3, v3+h1). Ningún parámetro existente cambia.
+
+1. **Controles del veto, solo reglas.** Sobre el test adaptativo que propone los candidatos del híbrido:
+   - (a) *veto por ráfaga*: se veta un candidato si la alarma nombra ≥ m estaciones, o si en los últimos W min han alarmado ≥ m estaciones distintas; con y sin veto por carga; un candidato vetado no se reexamina en 120 min (como el híbrido). Rejilla: tamaño de alarma m ∈ {2, 3, 4, 6}; línea W ∈ {30, 120} min × m ∈ {3, 5, 8}. Se elige en la traza de desarrollo por la recuperación a 24 h.
+   - (b) *veto aleatorio* a la tasa por candidato del híbrido Fable en las reservadas, con la misma suspensión de 120 min; 5 semillas, se presenta la media.
+   - (c) *solo la suspensión*: sin vetos no hay suspensión, así que coincide con la regla adaptativa (ya presentada).
+   Se evalúan en las tres trazas reservadas y en las cinco de validación. Resultados en `results/veto_controls/`.
+2. **Sensibilidad de los híbridos (Fable y Qwen)** en las trazas reservadas, cambiando un parámetro cada vez: k = 5; reparación de 15 min; α = 0; reparación de 240 min; modo parada; α = 1 (en este orden). Con las reglas por defecto y reajustadas en cada condición. Resultados en `results/sens_*/`.
+3. **C2 sobre Fable en las cinco trazas de validación** → `results/newtraces/`.
+4. **Fallos de causa común**: el mismo fallo, a la vez, en las cuatro estaciones con gemela o en las cuatro sin gemela; 2 grupos × 3 formas × 3 inicios por traza reservada (54 escenarios). Reglas e híbridos. → `results/commoncause/`.
+5. **Réplicas del híbrido Fable sin reutilizar respuestas** de la evaluación reservada: 3 réplicas, cada una con su propia clave de almacén (las llamadas idénticas dentro de una réplica sí se reutilizan). → `results/replica_{1,2,3}/`.
+6. **Análisis sin modelo** sobre lo almacenado: probabilidad de veto según el número de estaciones de la alarma (estación averiada frente a sanas); bootstrap por conglomerados traza × estación; distribución de la recuperación por escenario; acierto específico (±60/120/240 min); variante con un coste fijo por intervención.

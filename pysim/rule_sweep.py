@@ -326,7 +326,7 @@ def summarize() -> None:
 
     # comparison with the LLM planners on the same held-out scenarios
     if llm:
-        out += ["\n## Comparación con los planificadores LLM (reservadas, mismos 72 escenarios)\n",
+        out += ["\n## Comparación con los planificadores LLM (reservadas, mismos 216 escenarios)\n",
                 "| Planificador | todas | escalón | intermitente | deriva |", "|---|---|---|---|---|"]
 
         def lp(rs, shapes=SHAPES):

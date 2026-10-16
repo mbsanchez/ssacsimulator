@@ -11,7 +11,7 @@ Minutos-pieza perdidos por hora de operación, solo por actuar sobre ruido. Punt
 
 ## Rejilla central — recuperación agregada (escenarios con beneficio neto > 0)
 
-Diseño v2. Recuperación agregada a 24 h = 1 − Σ exceso en [t0, t0+24 h) (política) / ídem (no hacer nada). Detector legacy; fallo x3, reparación 60 min, α = 0,5, contingencia; 3 inicios por escenario.
+Diseño v2. Recuperación agregada a 24 h = 1 − Σ exceso en [t0, t0+24 h) (política) / ídem (no hacer nada). Detector por estación (results/detector_choice.json); 4 trazas (desarrollo + 3 reservadas); fallo x3, reparación 60 min, α = 0,5, contingencia; 3 inicios por escenario.
 
 | Grupo | rules_naive | rules_cal | rules_adapt | rules_twin |
 |---|---|---|---|---|

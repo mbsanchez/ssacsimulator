@@ -1,0 +1,4 @@
+{
+  "rules_burst": {"line_window_min": 120.0, "line_stations": 8, "load_veto": false},
+  "rules_burst_ctx": {"max_alarm_stations": 3, "load_veto": true}
+}

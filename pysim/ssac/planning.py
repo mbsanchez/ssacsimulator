@@ -8,6 +8,7 @@ goes through the symbolic validator before it is executed.
 
 from __future__ import annotations
 
+import hashlib
 import math
 from collections import deque
 from dataclasses import dataclass, field
@@ -300,4 +301,78 @@ class TwinOnlyRulePlanner:
             if len(acts) == 2:          # a free twin was found
                 actions += acts
                 self._last_acted[station] = ctx.t_min
+        return actions
+
+
+@dataclass
+class BurstVetoRulePlanner(AdaptiveRulePlanner):
+    """Control for the hybrid planner — not a proposed method.
+
+    The adaptive change test, with the hybrid's most frequently stated veto
+    written as a rule: reject a candidate when the alarm names at least
+    `max_alarm_stations` stations, or when at least `line_stations` distinct
+    stations have alarmed in the last `line_window_min` minutes. A rejected
+    station is not proposed again for `veto_snooze_min`, as in the hybrid.
+    `load_veto` adds the rule of `ContextAdaptiveRulePlanner`.
+    """
+    max_alarm_stations: int | None = None
+    line_window_min: float = 120.0
+    line_stations: int | None = None
+    load_veto: bool = False
+    veto_snooze_min: float = 120.0
+    name: str = "rules_burst"
+    _recent: deque = field(default_factory=deque)     # (t, station) of every alarm
+
+    def _vetoed(self, ctx: PlanningContext) -> bool:
+        stations = [s for s in ctx.detection.stations if s not in SENTINELS]
+        t = ctx.t_min
+        for s in stations:
+            self._recent.append((t, s))
+        while self._recent and self._recent[0][0] < t - self.line_window_min:
+            self._recent.popleft()
+        if self.max_alarm_stations is not None and len(stations) >= self.max_alarm_stations:
+            return True
+        if self.line_stations is not None and len({s for _, s in self._recent}) >= self.line_stations:
+            return True
+        return False
+
+    def accept(self, station: str, ctx: PlanningContext) -> bool:
+        return not self.load_veto or ctx.interventions.inbound_share(station) == 0
+
+    def plan(self, ctx: PlanningContext) -> list[Action]:
+        vetoed = self._vetoed(ctx) if ctx.detection.type.value in self.react_to else False
+        actions: list[Action] = []
+        claimed: set[str] = set()
+        for station in self.candidates(ctx):
+            if vetoed:
+                self.snooze(station, ctx.t_min + self.veto_snooze_min)
+                continue
+            actions += respond(station, ctx, claimed, self.repair_min)
+            self._last_acted[station] = ctx.t_min
+        return actions
+
+
+@dataclass
+class RandomVetoRulePlanner(AdaptiveRulePlanner):
+    """Control for the hybrid planner — not a proposed method.
+
+    The adaptive change test with each candidate vetoed at random with
+    probability `veto_rate` (deterministic in station, time and seed), and the
+    hybrid's 120-min suspension after a veto.
+    """
+    veto_rate: float = 0.65
+    seed: int = 0
+    veto_snooze_min: float = 120.0
+    name: str = "rules_randveto"
+
+    def plan(self, ctx: PlanningContext) -> list[Action]:
+        actions: list[Action] = []
+        claimed: set[str] = set()
+        for station in self.candidates(ctx):
+            h = hashlib.sha256(f"{self.seed}|{station}|{ctx.t_min:.3f}".encode()).digest()
+            if int.from_bytes(h[:8], "big") / 2**64 < self.veto_rate:
+                self.snooze(station, ctx.t_min + self.veto_snooze_min)
+                continue
+            actions += respond(station, ctx, claimed, self.repair_min)
+            self._last_acted[station] = ctx.t_min
         return actions

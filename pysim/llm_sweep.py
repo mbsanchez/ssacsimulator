@@ -32,14 +32,14 @@ from pathlib import Path
 
 from ssac import BusinessProcessModel, SimulationData, SimulationEngine
 from ssac.calibration import alarm_rates
-from ssac.intervention import Fault
+from ssac.intervention import EffectModel, Fault
 from ssac.llm import OllamaClient
 from ssac.llm_planner import PROMPT_VERSION, LLMPlanner
 from ssac.metrics import outcome
 from ssac.onsets import HORIZON_MIN, HORIZONS_MIN, onsets
 from ssac.hybrid_planner import HybridPlanner
-from ssac.planning import (AdaptiveRulePlanner, CalibratedRulePlanner, ContextAdaptiveRulePlanner, NoOpPlanner,
-                           TwinOnlyRulePlanner)
+from ssac.planning import (AdaptiveRulePlanner, BurstVetoRulePlanner, CalibratedRulePlanner, ContextAdaptiveRulePlanner,
+                           NoOpPlanner, RandomVetoRulePlanner, TwinOnlyRulePlanner)
 from ssac.rag_planner import RAGPlanner
 
 HERE = Path(__file__).resolve().parent
@@ -59,7 +59,11 @@ HELD_OUT = {
 STATIONS_TWIN = ["L0_S2", "L0_S4", "L0_S6", "L3_S35"]
 STATIONS_NO_TWIN = ["L0_S1", "L0_S8", "L3_S29", "L3_S33"]
 SHAPES = ["step", "intermittent", "drift"]
-RULES = ["noop", "rules_cal", "rules_adapt", "rules_twin", "rules_adapt_ctx", "rules_cal_rt", "rules_adapt_ctx_rt"]
+RULES = ["noop", "rules_cal", "rules_adapt", "rules_twin", "rules_adapt_ctx", "rules_cal_rt", "rules_adapt_ctx_rt",
+         "rules_burst", "rules_burst_ctx"]
+# veto controls chosen on the development trace (results/veto_controls/summary.md)
+BURST = json.loads((HERE / "results" / "veto_controls" / "chosen.json").read_text()) \
+    if (HERE / "results" / "veto_controls" / "chosen.json").exists() else {}
 # validation on new traces (results/dev_log.md, 2026-10-15): base rates from the development trace
 NEW_TRACES = {f"test_cases_{n}.td": "test_cases_0-100m.td"
               for n in ("300m-400m", "400m-500m", "600m-700m", "700m-800m", "800m-900m")}
@@ -78,13 +82,17 @@ CALL_FIELDS = ["trace", "station", "shape", "onset_idx", "planner", "t_min", "el
                "reason", "problems", "cached", "latency_s"]
 
 
+COMMON_CAUSE = False   # results/dev_log.md, 2026-10-16: one fault on four stations at once
+GROUPS = {"+".join(STATIONS_TWIN): STATIONS_TWIN, "+".join(STATIONS_NO_TWIN): STATIONS_NO_TWIN}
+
+
 def scenarios(limit: int | None):
     out = []
     for trace in HELD_OUT:
         data = SimulationData.load(ROOT / trace)
         t_first, t_last = data.events[0].start_time, data.events[-1].start_time
         out.append((trace, "", "", "", None))                       # fault-free, whole trace
-        for station in STATIONS_TWIN + STATIONS_NO_TWIN:
+        for station in (list(GROUPS) if COMMON_CAUSE else STATIONS_TWIN + STATIONS_NO_TWIN):
             for shape in SHAPES:
                 for k, onset in enumerate(onsets(trace, station, shape, t_first, t_last)):
                     out.append((trace, station, shape, k, onset))
@@ -92,6 +100,8 @@ def scenarios(limit: int | None):
 
 
 FAULT_FACTOR = 3.0
+REPAIR_MIN = 60.0
+EFFECTS: dict = {}     # congestion_alpha / maintenance_mode overrides (sensitivity runs)
 ABLATION: dict = {}   # alarm_text / burst_cue overrides (results/dev_log.md, 2026-10-15)
 
 
@@ -138,7 +148,8 @@ def run(args) -> None:
     if args.backend == "agent-sdk":
         from ssac.agent_sdk_client import AgentSDKClient
         client = AgentSDKClient(model=args.model, effort=args.effort, cache_path=HERE / "cache" / "llm_cache.sqlite",
-                                offline=args.offline)
+                                offline=args.offline,
+                                **({"harness": f"strict-mcp-v1|replica-{args.replica}"} if args.replica else {}))
     else:
         client = OllamaClient(model=args.model, cache_path=HERE / "cache" / "llm_cache.sqlite", offline=args.offline)
     done = load_done(args.model, args.tag)
@@ -177,30 +188,36 @@ def run(args) -> None:
                 cache = {trace: (data, dict(ref.lifetimes), rates)}
             data, reference, rates = cache[trace]
             span_h = (data.events[-1].start_time - data.events[0].start_time) / 60.0
-            faults = [] if not station else [Fault(station, FAULT_FACTOR, onset, shape=shape)]
+            faults = [] if not station else [Fault(s, FAULT_FACTOR, onset, shape=shape) for s in station.split("+")]
 
             for name in phase:
                 if (trace, station, shape, str(k), label(name, args.tag)) in done:
                     continue
                 planner = {
                     "noop": lambda: NoOpPlanner(),
-                    "rules_cal": lambda: CalibratedRulePlanner(rates),
-                    "rules_adapt": lambda: AdaptiveRulePlanner(),
-                    "rules_twin": lambda: TwinOnlyRulePlanner(),
-                    "rules_adapt_ctx": lambda: ContextAdaptiveRulePlanner(),
+                    "rules_cal": lambda: CalibratedRulePlanner(rates, repair_min=REPAIR_MIN),
+                    "rules_adapt": lambda: AdaptiveRulePlanner(repair_min=REPAIR_MIN),
+                    "rules_twin": lambda: TwinOnlyRulePlanner(repair_min=REPAIR_MIN),
+                    "rules_adapt_ctx": lambda: ContextAdaptiveRulePlanner(repair_min=REPAIR_MIN),
                     # re-tuned on the development trace (results/processing/rule_sweep_summary.md)
                     "rules_cal_rt": lambda: CalibratedRulePlanner(rates, window_min=240.0, alpha=1e-4,
-                                                                  name="rules_cal_rt"),
+                                                                  repair_min=REPAIR_MIN, name="rules_cal_rt"),
                     "rules_adapt_ctx_rt": lambda: ContextAdaptiveRulePlanner(window_min=240.0, alpha=1e-3,
-                                                                             history_min=1440.0,
+                                                                             history_min=1440.0, repair_min=REPAIR_MIN,
                                                                              name="rules_adapt_ctx_rt"),
-                    "hybrid": lambda: HybridPlanner(client, baseline_per_min=rates, **llm_kw("hybrid")),
-                    "llm_c1": lambda: LLMPlanner(client, **llm_kw("llm_c1")),
-                    "llm_c2": lambda: RAGPlanner(client, baseline_per_min=rates, **llm_kw("llm_c2")),
+                    "rules_burst": lambda: BurstVetoRulePlanner(repair_min=REPAIR_MIN, name="rules_burst",
+                                                                **BURST["rules_burst"]),
+                    "rules_burst_ctx": lambda: BurstVetoRulePlanner(repair_min=REPAIR_MIN, name="rules_burst_ctx",
+                                                                    **BURST["rules_burst_ctx"]),
+                    "hybrid": lambda: HybridPlanner(client, baseline_per_min=rates, repair_min=REPAIR_MIN,
+                                                    **llm_kw("hybrid")),
+                    "llm_c1": lambda: LLMPlanner(client, repair_min=REPAIR_MIN, **llm_kw("llm_c1")),
+                    "llm_c2": lambda: RAGPlanner(client, baseline_per_min=rates, repair_min=REPAIR_MIN,
+                                                 **llm_kw("llm_c2")),
                 }[name]()
                 m, _ = BusinessProcessModel.load(MODEL)
                 eng = SimulationEngine(m, data, faults=faults, planner=planner, detectors=(ANALYZE,),
-                                       processing_params=PROCESSING_PARAMS or None)
+                                       processing_params=PROCESSING_PARAMS or None, effects=EffectModel(**EFFECTS))
                 h0 = client.stats["cache_hits"]
                 t0 = time.perf_counter()
                 eng.run(until_min=onset + HORIZON_MIN if station else None)
@@ -218,7 +235,7 @@ def run(args) -> None:
                     "fault_h24_min": round((o.fault_h or {}).get(1440.0, 0.0), 3) if station else "",
                     "actions_h24_min": round((o.actions_h or {}).get(1440.0, 0.0), 3) if station else "",
                     # transitions leaving the faulty station in the window: how much the fault can cost
-                    "exposure_h24": sum(1 for e in data.events if e.begin_actor == station
+                    "exposure_h24": sum(1 for e in data.events if e.begin_actor in station.split("+")
                                         and onset <= e.start_time < onset + HORIZON_MIN) if station else "",
                     "maintenances_on_fault": (o.maintenances_on_fault_h or {}).get(HORIZON_MIN, 0) if station
                     else 0,
@@ -352,6 +369,11 @@ def main() -> int:
     ap.add_argument("--summary", action="store_true")
     ap.add_argument("--results", type=Path, default=None, help="alternative results dir (smoke tests)")
     ap.add_argument("--factor", type=float, default=3.0, help="fault factor k (sensitivity runs)")
+    ap.add_argument("--repair-min", type=float, default=60.0, help="repair duration (sensitivity runs)")
+    ap.add_argument("--congestion", type=float, default=None, help="congestion alpha (sensitivity runs)")
+    ap.add_argument("--mode", choices=["contingency", "stop"], default=None, help="maintenance mode (sensitivity runs)")
+    ap.add_argument("--common-cause", action="store_true", help="one fault on four stations at once")
+    ap.add_argument("--replica", type=int, default=None, help="agent-sdk: separate response-store key (replicas)")
     ap.add_argument("--new-traces", action="store_true", help="the five new validation traces instead of the held-out ones")
     ap.add_argument("--alarm-text", choices=["legacy", "processing"], default=None,
                     help="ablation: describe the alarms as this detector regardless of --analyze")
@@ -370,8 +392,14 @@ def main() -> int:
         ANALYZE = "processing"
         PROCESSING_PARAMS = json.loads((HERE / "results" / "detector_choice.json").read_text())
         LLM_VERSIONS.update({"llm_c1": "v3", "llm_c2": "v3", "hybrid": "v3+h1"})
-    global FAULT_FACTOR
+    global FAULT_FACTOR, REPAIR_MIN, COMMON_CAUSE
     FAULT_FACTOR = args.factor
+    REPAIR_MIN = args.repair_min
+    COMMON_CAUSE = args.common_cause
+    if args.congestion is not None:
+        EFFECTS["congestion_alpha"] = args.congestion
+    if args.mode is not None:
+        EFFECTS["maintenance_mode"] = args.mode
     if args.new_traces:
         HELD_OUT.clear()
         HELD_OUT.update(NEW_TRACES)

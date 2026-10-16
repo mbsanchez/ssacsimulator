@@ -18,7 +18,7 @@ The original 2020 simulator (Qt/C++) is described in M. Sánchez et al., *Comput
 
 ## Data
 
-The study uses the [Bosch Production Line Performance](https://www.kaggle.com/c/bosch-production-line-performance) dataset, distributed by Kaggle under the competition's rules. **This repository does not redistribute it, nor the files derived from it.** To rerun the simulations, download the dataset from Kaggle, derive the process model and traces with the scripts in `DataSets I4.0/PreProcess/`, and place them in `DataSets I4.0/` (or point the environment variable `SSAC_DATA` to their folder). The files used in the paper are:
+The study uses the [Bosch Production Line Performance](https://www.kaggle.com/c/bosch-production-line-performance) dataset, distributed by Kaggle under the competition's rules. **This repository does not redistribute it, nor the files derived from it.** To rerun the simulations, download the dataset from Kaggle, derive the process model and traces with the scripts in `DataSets I4.0/PreProcess/` (the five validation traces with `make_traces.py`), and place them in `DataSets I4.0/` (or point the environment variable `SSAC_DATA` to their folder). The files used in the paper are:
 
 | File | Bytes | SHA-256 |
 |---|---:|---|
@@ -28,6 +28,11 @@ The study uses the [Bosch Production Line Performance](https://www.kaggle.com/c/
 | `test_cases_100m-200m.td` | 3 506 005 | `3f277e50f59bcdb14a4ba7a638ca9e22cbe75c60fbd8f6fb6f6cc71c62e5677b` |
 | `test_cases_200m-300m.td` | 3 619 078 | `b8bbdd864dcbd11dcc74cf7e41312c38732cc35262238c294c9add826128bdec` |
 | `test_cases_500m-600m.td` | 3 626 343 | `df4304d73bae96196743d2065c41b5fc6b94c4330f3582e36913266982ced770` |
+| `test_cases_300m-400m.td` (validation) | 3 731 080 | `19f05fb4f97ce95a2112c3e49a8a8ead7d6353a27405bb58928b28d41be27526` |
+| `test_cases_400m-500m.td` (validation) | 3 699 621 | `eebba9887b0883ba41ae53456bed9d516b6d1b8889a50626c6e02b21e687cf13` |
+| `test_cases_600m-700m.td` (validation) | 3 704 531 | `3aeaa2ff1f413c8d86898dd7f9ddbdb3579cc622a546a059848ccc7f69cfde8a` |
+| `test_cases_700m-800m.td` (validation) | 3 716 978 | `c07ffab4cab4c16da22b69419abcaf0c9fe5b3370322acc614307e2fef586931` |
+| `test_cases_800m-900m.td` (validation) | 3 710 217 | `6d0d49a2773e82e6eedca151085d69a407e0f4bd3766ea7f4e3fe836787f8443` |
 
 The derived files are available from the corresponding author on request, to holders of the Kaggle dataset.
 

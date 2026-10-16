@@ -19,18 +19,22 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 PY = str(HERE / ".venv" / "bin" / "python")
 SDK = ["--backend", "agent-sdk", "--model", "claude-fable-5-1"]
-# (results dir, extra arguments, planners) in order of priority (results/dev_log.md, 2026-10-15)
-JOBS = [
-    ("results/newtraces", ["--analyze", "processing", "--new-traces"],
-     ["noop", "rules_cal", "rules_adapt", "rules_twin", "rules_adapt_ctx", "rules_cal_rt", "rules_adapt_ctx_rt", "hybrid"]),
-    ("results/ablation_nocue", ["--analyze", "processing", "--no-burst-cue"], ["noop", "hybrid"]),
-    ("results/sens_k1.5", ["--analyze", "processing", "--factor", "1.5"],
-     ["noop", "rules_cal", "rules_adapt", "rules_twin", "rules_adapt_ctx", "hybrid"]),
-    ("results/ablation_v2text", ["--analyze", "processing", "--alarm-text", "legacy"], ["noop", "hybrid"]),
-    ("results/ablation_legacy_v3text", ["--analyze", "legacy", "--alarm-text", "processing"], ["noop", "hybrid"]),
-]
+# (results dir, extra arguments, planners) in order of priority (results/dev_log.md, 2026-10-16)
+P = ["--analyze", "processing"]
+RULES = ["noop", "rules_cal", "rules_adapt", "rules_adapt_ctx", "rules_cal_rt", "rules_adapt_ctx_rt",
+         "rules_burst", "rules_burst_ctx"]
+SENS = [("sens_k5", ["--factor", "5"]), ("sens_r15", ["--repair-min", "15"]), ("sens_a0", ["--congestion", "0"])]
+SENS_LATE = [("sens_r240", ["--repair-min", "240"]), ("sens_stop", ["--mode", "stop"]), ("sens_a1", ["--congestion", "1"])]
+JOBS = ([(f"results/{d}", P + x, RULES + ["hybrid"]) for d, x in SENS]
+        + [("results/newtraces", P + ["--new-traces"], ["noop", "llm_c2"]),
+           ("results/commoncause", P + ["--common-cause"], RULES + ["hybrid"])]
+        + [(f"results/replica_{i}", P + ["--replica", str(i)], ["noop", "hybrid"]) for i in (1, 2, 3)]
+        + [(f"results/{d}", P + x, RULES + ["hybrid"]) for d, x in SENS_LATE])
+
+
 def rows_per_planner(extra: list[str]) -> int:
-    return (5 if "--new-traces" in extra else 3) * 73      # traces x (72 fault scenarios + 1 fault-free)
+    per_trace = 19 if "--common-cause" in extra else 73     # fault scenarios + 1 fault-free
+    return (5 if "--new-traces" in extra else 3) * per_trace
 
 
 def complete(d: Path, planners: list[str], extra: list[str]) -> bool:
@@ -62,6 +66,13 @@ def wait_for_reset(text: str) -> bool:
 
 def main() -> int:
     import sys
+    if len(sys.argv) > 1 and sys.argv[1] == "--backend-ollama":
+        global SDK
+        SDK = ["--backend", "ollama"]
+        sys.argv.pop(1)
+        global JOBS     # the 7B hybrid: same conditions, rows in <dir>/qwen (merged by stats.read_all)
+        JOBS = [(f"{d}/qwen", x, ["noop", "hybrid"]) for d, x, p in JOBS
+                if "--replica" not in x and "--new-traces" not in x]
     only = sys.argv[1:]          # optional: results dirs to run, e.g. results/newtraces
     for path, extra, planners in JOBS:
         if only and path not in only:

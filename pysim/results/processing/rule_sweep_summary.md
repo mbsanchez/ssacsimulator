@@ -65,7 +65,7 @@ Selección por forma de fallo (elegida en desarrollo sobre esa forma; evaluada e
 
 En la rejilla, recuperación en reservadas: mín. +0.001, mediana +0.150, máx. +0.273. Solo intermitente: mín. -0.580, mediana -0.210, máx. +0.047.
 
-## Comparación con los planificadores LLM (reservadas, mismos 72 escenarios)
+## Comparación con los planificadores LLM (reservadas, mismos 216 escenarios)
 
 | Planificador | todas | escalón | intermitente | deriva |
 |---|---|---|---|---|
@@ -74,7 +74,8 @@ En la rejilla, recuperación en reservadas: mín. +0.001, mediana +0.150, máx. 
 | rules_adapt especializada en intermitente (desarrollo) `w=240 a=0.001 h=1440` | +0.139 | +0.201 | -0.298 | +0.274 |
 | rules_adapt_ctx elegida en desarrollo `w=240 a=0.001 h=1440` | +0.183 | +0.236 | -0.222 | +0.313 |
 | rules_adapt_ctx especializada en intermitente (desarrollo) `w=240 a=0.001 h=1440` | +0.183 | +0.236 | -0.222 | +0.313 |
-| llm_c2:fable-5.1 | +0.358 | +0.537 | +0.001 | +0.243 |
+| llm_c2:fable-5.1 | +0.139 | +0.229 | -0.253 | +0.225 |
+| hybrid:fable-5.1 | +0.413 | +0.350 | +0.292 | +0.532 |
 
 ## C2 con Fable 5.1 frente a reglas reajustadas (emparejado)
 
@@ -82,15 +83,15 @@ En la rejilla, recuperación en reservadas: mín. +0.001, mediana +0.150, máx. 
 
 | Regla | Configuración | Formas | Δ | IC 95 % | Fable mejor en | p | r |
 |---|---|---|---|---|---|---|---|
-| rules_adapt | por defecto `w=120 a=0.001 h=1440` | todas | +0.091 | [+0.004, +0.219] | 6/12 | 0.160 | +0.53 |
-| rules_adapt | por defecto `w=120 a=0.001 h=1440` | intermitente | +0.109 | [-0.064, +0.415] | 2/3 | 0.500 | +0.67 |
-| rules_adapt | elegida en desarrollo `w=240 a=0.001 h=1440` | todas | +0.055 | [-0.061, +0.186] | 7/12 | 0.375 | +0.35 |
-| rules_adapt | elegida en desarrollo `w=240 a=0.001 h=1440` | intermitente | -0.051 | [-0.239, +0.405] | 1/3 | 0.750 | -0.33 |
-| rules_adapt | óptimo en reservadas `w=180 a=0.0001 h=720` | todas | -0.068 | [-0.161, +0.029] | 3/12 | 0.492 | -0.27 |
-| rules_adapt | óptimo en reservadas `w=180 a=0.0001 h=720` | intermitente | -0.130 | [-0.312, +0.216] | 1/3 | 0.750 | -0.33 |
-| rules_adapt_ctx | por defecto `w=120 a=0.001 h=1440` | todas | +0.073 | [-0.019, +0.190] | 6/12 | 0.232 | +0.45 |
-| rules_adapt_ctx | por defecto `w=120 a=0.001 h=1440` | intermitente | +0.004 | [-0.144, +0.369] | 1/3 | 1.000 | +0.00 |
-| rules_adapt_ctx | elegida en desarrollo `w=240 a=0.001 h=1440` | todas | +0.026 | [-0.087, +0.154] | 6/12 | 0.770 | +0.13 |
-| rules_adapt_ctx | elegida en desarrollo `w=240 a=0.001 h=1440` | intermitente | -0.059 | [-0.218, +0.387] | 1/3 | 0.750 | -0.33 |
-| rules_adapt_ctx | óptimo en reservadas `w=180 a=0.0001 h=720` | todas | -0.128 | [-0.221, -0.037] | 3/12 | 0.037 | -0.75 |
-| rules_adapt_ctx | óptimo en reservadas `w=180 a=0.0001 h=720` | intermitente | -0.210 | [-0.352, +0.194] | 1/3 | 0.500 | -0.67 |
+| rules_adapt | por defecto `w=120 a=0.001 h=1440` | todas | -0.028 | [-0.075, +0.017] | 78/216 | 0.727 | -0.03 |
+| rules_adapt | por defecto `w=120 a=0.001 h=1440` | intermitente | +0.015 | [-0.089, +0.103] | 31/72 | 0.562 | +0.09 |
+| rules_adapt | elegida en desarrollo `w=240 a=0.001 h=1440` | todas | +0.000 | [-0.048, +0.048] | 84/216 | 0.640 | +0.04 |
+| rules_adapt | elegida en desarrollo `w=240 a=0.001 h=1440` | intermitente | +0.045 | [-0.079, +0.155] | 30/72 | 0.460 | +0.11 |
+| rules_adapt | óptimo en reservadas `w=180 a=0.0001 h=720` | todas | -0.108 | [-0.153, -0.069] | 52/216 | 0.000 | -0.51 |
+| rules_adapt | óptimo en reservadas `w=180 a=0.0001 h=720` | intermitente | -0.258 | [-0.387, -0.156] | 12/72 | 0.000 | -0.71 |
+| rules_adapt_ctx | por defecto `w=120 a=0.001 h=1440` | todas | -0.065 | [-0.113, -0.021] | 69/216 | 0.016 | -0.22 |
+| rules_adapt_ctx | por defecto `w=120 a=0.001 h=1440` | intermitente | -0.058 | [-0.176, +0.049] | 23/72 | 0.193 | -0.20 |
+| rules_adapt_ctx | elegida en desarrollo `w=240 a=0.001 h=1440` | todas | -0.044 | [-0.091, +0.003] | 70/216 | 0.106 | -0.15 |
+| rules_adapt_ctx | elegida en desarrollo `w=240 a=0.001 h=1440` | intermitente | -0.031 | [-0.155, +0.086] | 25/72 | 0.374 | -0.14 |
+| rules_adapt_ctx | óptimo en reservadas `w=180 a=0.0001 h=720` | todas | -0.143 | [-0.189, -0.102] | 44/216 | 0.000 | -0.64 |
+| rules_adapt_ctx | óptimo en reservadas `w=180 a=0.0001 h=720` | intermitente | -0.324 | [-0.464, -0.212] | 10/72 | 0.000 | -0.80 |
