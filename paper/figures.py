@@ -34,6 +34,9 @@ ES = {
     "24-h recovery on held-out traces (95% stratified bootstrap CI)":
         "Recuperación a 24 h, trazas reservadas (IC 95%, bootstrap)",
     "Rule: twin-only (control)": "Regla: solo gemelas (control)",
+    "Rule: burst veto (control)": "Regla: veto por ráfaga (control)",
+    "Rule: burst + load veto (control)": "Regla: ráfaga + veto por carga (control)",
+    "Rule: burst + load veto": "Regla: ráfaga + veto por carga",
     "False-alarm cost without faults (piece-min/h, mean of held-out traces)":
         "Coste de falsas alarmas sin fallos (min-pieza/h, media de las trazas reservadas)",
     "24-h recovery with faults": "Recuperación a 24 h con fallos",
@@ -75,6 +78,8 @@ PLANNERS = [  # (row name, label, family)
     ("rules_adapt", "Rule: adaptive", "rules"),
     ("rules_adapt_ctx", "Rule: adaptive + load veto", "rules"),
     ("rules_twin", "Rule: twin-only (control)", "rules"),
+    ("rules_burst", "Rule: burst veto (control)", "rules"),
+    ("rules_burst_ctx", "Rule: burst + load veto (control)", "rules"),
     ("llm_c1", "C1 (Qwen 7B)", "qwen"),
     ("llm_c2", "C2 RAG (Qwen 7B)", "qwen"),
     ("hybrid", "Hybrid (Qwen 7B)", "qwen"),
@@ -99,7 +104,16 @@ def load():
              for r in rows if r["station"]}
     free = {(r["trace"], r["planner"]): float(r["excess_delay_min"]) / float(r["span_h"])
             for r in rows if not r["station"]}
-    keys = sorted({k[:4] for k in fault})
+    # veto controls (pysim/results/veto_controls/), same scenarios and detector
+    import csv
+    names = {"burst|line120>=8": "rules_burst", "burst_ctx|size>=3": "rules_burst_ctx"}
+    for r in csv.DictReader((RESULTS.parent / "veto_controls" / "rows.csv").open()):
+        if r["planner"] in names:
+            if r["station"]:
+                fault[(r["trace"], r["station"], r["shape"], r["onset_idx"], names[r["planner"]])] = float(r["excess_h24_min"])
+            else:
+                free[(r["trace"], names[r["planner"]])] = float(r["false_cost_per_h"])
+    keys = sorted({k[:4] for k in fault if k[:4] + ("noop",) in fault})
     return fault, free, keys
 
 
@@ -155,7 +169,7 @@ def fig_tradeoff(fault, free, keys):
     offsets = {"rules_adapt": (7, 7, "left"), "rules_adapt_ctx": (7, 4, "left"), "rules_cal": (7, -8, "left"),
                "llm_c2:fable-5.1": (-7, 0, "right"), "hybrid": (7, 0, "left"), "hybrid:fable-5.1": (7, 0, "left"),
                "llm_c1": (7, 0, "left"), "llm_c2": (-7, 0, "right"), "llm_c1:fable-5.1": (7, 0, "left"),
-               "rules_twin": (7, 0, "left")}
+               "rules_twin": (7, 0, "left"), "rules_burst": (-7, -6, "right"), "rules_burst_ctx": (7, 4, "left")}
     for p, label, fam in PLANNERS:
         c, m = FAMILY[fam]
         x = sum(free[(t, p)] for t in traces) / len(traces)
@@ -181,7 +195,7 @@ def fig_tradeoff(fault, free, keys):
 
 
 def fig_shapes(fault, keys):
-    chosen = [("rules_adapt_ctx", "Rule: adaptive + load veto", "rules"),
+    chosen = [("rules_burst_ctx", "Rule: burst + load veto", "rules"),
               ("hybrid", "Hybrid (Qwen 7B)", "qwen"),
               ("hybrid:fable-5.1", "Hybrid (Fable 5.1)", "fable")]
     fig, ax = plt.subplots(figsize=(6.3, 2.8))
