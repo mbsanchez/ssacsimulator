@@ -60,7 +60,7 @@ STATIONS_TWIN = ["L0_S2", "L0_S4", "L0_S6", "L3_S35"]
 STATIONS_NO_TWIN = ["L0_S1", "L0_S8", "L3_S29", "L3_S33"]
 SHAPES = ["step", "intermittent", "drift"]
 RULES = ["noop", "rules_cal", "rules_adapt", "rules_twin", "rules_adapt_ctx", "rules_cal_rt", "rules_adapt_ctx_rt",
-         "rules_burst", "rules_burst_ctx"]
+         "rules_burst", "rules_burst_ctx", "rules_burst2_ctx"]
 # veto controls chosen on the development trace (results/veto_controls/summary.md)
 BURST = json.loads((HERE / "results" / "veto_controls" / "chosen.json").read_text()) \
     if (HERE / "results" / "veto_controls" / "chosen.json").exists() else {}
@@ -209,6 +209,9 @@ def run(args) -> None:
                                                                 **BURST["rules_burst"]),
                     "rules_burst_ctx": lambda: BurstVetoRulePlanner(repair_min=REPAIR_MIN, name="rules_burst_ctx",
                                                                     **BURST["rules_burst_ctx"]),
+                    # best burst configuration on the evaluation traces, not selectable on development
+                    "rules_burst2_ctx": lambda: BurstVetoRulePlanner(repair_min=REPAIR_MIN, name="rules_burst2_ctx",
+                                                                     max_alarm_stations=2, load_veto=True),
                     "hybrid": lambda: HybridPlanner(client, baseline_per_min=rates, repair_min=REPAIR_MIN,
                                                     **llm_kw("hybrid")),
                     "llm_c1": lambda: LLMPlanner(client, repair_min=REPAIR_MIN, **llm_kw("llm_c1")),

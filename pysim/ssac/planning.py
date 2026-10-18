@@ -376,3 +376,38 @@ class RandomVetoRulePlanner(AdaptiveRulePlanner):
             actions += respond(station, ctx, claimed, self.repair_min)
             self._last_acted[station] = ctx.t_min
         return actions
+
+
+@dataclass
+class SustainedBurstVetoRulePlanner(BurstVetoRulePlanner):
+    """Control for the hybrid planner — not a proposed method.
+
+    The burst veto, except for candidates whose alarms over the last 24 h are
+    at least `override_ratio` times what their fault-free base rate predicts
+    (the statistic the LLM planners retrieve; `RAGPlanner.context_block`).
+    Before `min_history_h` of operation the veto applies unchanged.
+    """
+    baseline_per_min: dict[str, float] = field(default_factory=dict)
+    override_ratio: float = 3.0
+    min_history_h: float = 8.0
+    name: str = "rules_burst_sustained"
+
+    def _sustained(self, station: str, t: float) -> bool:
+        if self._t0 is None or (t - self._t0) / 60.0 < self.min_history_h:
+            return False
+        span_h = min(24.0, (t - self._t0) / 60.0)
+        observed = sum(1 for x in self._alarms.get(station, ()) if x >= t - span_h * 60.0)
+        expected = max(self.baseline_per_min.get(station, 0.0) * 60.0 * span_h, 1.0)
+        return observed >= self.override_ratio * expected
+
+    def plan(self, ctx: PlanningContext) -> list[Action]:
+        vetoed = self._vetoed(ctx) if ctx.detection.type.value in self.react_to else False
+        actions: list[Action] = []
+        claimed: set[str] = set()
+        for station in self.candidates(ctx):
+            if vetoed and not self._sustained(station, ctx.t_min):
+                self.snooze(station, ctx.t_min + self.veto_snooze_min)
+                continue
+            actions += respond(station, ctx, claimed, self.repair_min)
+            self._last_acted[station] = ctx.t_min
+        return actions

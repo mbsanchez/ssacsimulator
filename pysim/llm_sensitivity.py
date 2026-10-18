@@ -15,20 +15,22 @@ CONDS = [("central (k = 3, 60 min, α = 0,5, contingencia)", "processing"), ("k 
          ("reparación 15 min", "sens_r15"), ("reparación 240 min", "sens_r240"), ("modo parada", "sens_stop"),
          ("α = 0", "sens_a0"), ("α = 1", "sens_a1"), ("causa común (4 estaciones)", "commoncause")]
 PLANNERS = ["rules_cal", "rules_adapt", "rules_adapt_ctx", "rules_cal_rt", "rules_adapt_ctx_rt", "rules_burst",
-            "rules_burst_ctx", "hybrid", "hybrid:fable-5.1"]
+            "rules_burst_ctx", "rules_burst2_ctx", "hybrid", "hybrid:fable-5.1"]
 
 
 def main() -> int:
     out = ["# Sensibilidad de los planificadores (trazas reservadas, detector por estación, diseño v2)\n",
            "Recuperación neta a 24 h. `rules_burst*` en la condición central: `results/veto_controls/` (misma configuración).\n",
-           "| Condición | escenarios | " + " | ".join(PLANNERS) + " | Fable − burst_ctx [IC 95 %] | Fable − mejor regla [IC 95 %] |",
-           "|---|---|" + "---|" * (len(PLANNERS) + 2)]
+           "| Condición | escenarios | " + " | ".join(PLANNERS) + " | Fable − burst_ctx [IC 95 %] | Fable − burst2_ctx [IC 95 %] | Fable − mejor regla [IC 95 %] |",
+           "|---|---|" + "---|" * (len(PLANNERS) + 3)]
     for name, d in CONDS:
         R = load(RES / d)
         if d == "processing":
             import csv
-            nm = {"burst|line120>=8": "rules_burst", "burst_ctx|size>=3": "rules_burst_ctx"}
-            for r in csv.DictReader((RES / "veto_controls" / "rows.csv").open()):
+            nm = {"burst|line120>=8": "rules_burst", "burst_ctx|size>=3": "rules_burst_ctx",
+                  "burst_ctx|size>=2": "rules_burst2_ctx"}
+            for r in [*csv.DictReader((RES / "veto_controls" / "rows.csv").open()),
+                      *csv.DictReader((RES / "veto_controls2" / "rows.csv").open())]:
                 if r["planner"] in nm and r["station"]:
                     R[(r["trace"], r["station"], r["shape"], r["onset_idx"], nm[r["planner"]])] = r
             cal_rt = {}
@@ -44,8 +46,9 @@ def main() -> int:
         best = max(rules, key=lambda p: pooled(R, p, ks))
         c1 = compare(R, "hybrid:fable-5.1", R, "rules_burst_ctx", ks) if "rules_burst_ctx" in have else None
         c2 = compare(R, "hybrid:fable-5.1", R, best, ks)
+        c3 = compare(R, "hybrid:fable-5.1", R, "rules_burst2_ctx", ks)
         f = lambda c: f"{c['delta']:+.2f} [{c['ci'][0]:+.2f}, {c['ci'][1]:+.2f}]" if c else "–"
-        out.append(f"| {name} | {len(ks)} | " + " | ".join(cells) + f" | {f(c1)} | {f(c2)} ({best}) |")
+        out.append(f"| {name} | {len(ks)} | " + " | ".join(cells) + f" | {f(c1)} | {f(c3)} | {f(c2)} ({best}) |")
 
     out += ["\n## Réplicas del híbrido Fable sin reutilizar respuestas de la evaluación reservada\n",
             "| Ejecución | recuperación 24 h [IC 95 %] | Δ frente a rules_adapt_ctx | llamadas nuevas |", "|---|---|---|---|"]

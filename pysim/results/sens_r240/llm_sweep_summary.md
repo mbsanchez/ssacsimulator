@@ -1,6 +1,6 @@
 # Evaluación final en trazas reservadas — prompt v2
 
-Generado 2026-10-17 13:23. Recuperación agregada (escenarios con beneficio neto).
+Generado 2026-10-18 19:33. Recuperación agregada (escenarios con beneficio neto).
 
 | Grupo | rules_cal | rules_adapt | rules_twin | rules_adapt_ctx | hybrid:fable-5.1 |
 |---|---|---|---|---|---|

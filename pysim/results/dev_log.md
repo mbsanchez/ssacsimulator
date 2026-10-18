@@ -182,3 +182,14 @@ Diseño v2, detector por estación (`results/detector_choice.json`), prompts con
 4. **Fallos de causa común**: el mismo fallo, a la vez, en las cuatro estaciones con gemela o en las cuatro sin gemela; 2 grupos × 3 formas × 3 inicios por traza reservada (54 escenarios). Reglas e híbridos. → `results/commoncause/`.
 5. **Réplicas del híbrido Fable sin reutilizar respuestas** de la evaluación reservada: 3 réplicas, cada una con su propia clave de almacén (las llamadas idénticas dentro de una réplica sí se reutilizan). → `results/replica_{1,2,3}/`.
 6. **Análisis sin modelo** sobre lo almacenado: probabilidad de veto según el número de estaciones de la alarma (estación averiada frente a sanas); bootstrap por conglomerados traza × estación; distribución de la recuperación por escenario; acierto específico (±60/120/240 min); variante con un coste fijo por intervención.
+
+## 2026-10-18 — Cota superior del control de ráfagas y control con exceso sostenido (registrados antes de ejecutarlos)
+
+Solo reglas, sin llamadas a modelos. Diseño v2, detector por estación, mismos escenarios.
+
+1. **Todas las configuraciones del control de ráfagas** (las 20 de la rejilla de `veto_controls.py`, con y sin veto por carga) en las tres trazas reservadas y las cinco de validación. Se presentan su distribución y, como cota superior que ningún protocolo honesto podría seleccionar, la mejor configuración en las trazas reservadas y su margen frente al híbrido Fable.
+2. **Control de ráfagas anulado por exceso sostenido.** El control de ráfagas con veto por carga elegido (alarma de ≥ 3 estaciones), pero sin vetar un candidato cuyas alarmas de las últimas 24 h sean al menos R veces las que predice su tasa base sin fallos (la misma estadística que recibe el LLM; tasas base con la misma calibración cruzada que C2; si la tasa base es 0 se toma 1 alarma esperada). R ∈ {1,5; 2; 3; 5; 10}, elegido en la traza de desarrollo por la recuperación a 24 h. Se evalúa en las ocho trazas. Resultados en `results/veto_controls2/`.
+
+## 2026-10-18 — Resultado del punto 1 y análisis añadido a la vista de él
+
+La configuración del control de ráfagas mejor en las trazas reservadas, y también en las de validación, es `burst_ctx|size>=2` (vetar alarmas de ≥ 2 estaciones, con veto por carga), que en desarrollo quedaba por debajo de la elegida (+0,838 frente a +0,889). Frente a ella el margen del híbrido Fable desaparece en ambos conjuntos (`results/veto_controls2/summary.md`). Añadido después de ver este resultado, y por tanto no preespecificado: la misma configuración en todas las condiciones de sensibilidad y de causa común (`rules_burst2_ctx` en `results/sens_*/`, `results/commoncause/`).
