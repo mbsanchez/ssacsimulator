@@ -1,0 +1,178 @@
+\begin{thebibliography}{10}
+\expandafter\ifx\csname url\endcsname\relax
+  \def\url#1{\texttt{#1}}\fi
+\expandafter\ifx\csname urlprefix\endcsname\relax\def\urlprefix{URL }\fi
+\expandafter\ifx\csname href\endcsname\relax
+  \def\href#1#2{#2} \def\path#1{#1}\fi
+
+\bibitem{kephart2003vision}
+J.~O. Kephart, D.~M. Chess, The vision of autonomic computing, Computer 36~(1)
+  (2003) 41--50.
+\newblock \href {https://doi.org/10.1109/MC.2003.1160055}
+  {\path{doi:10.1109/MC.2003.1160055}}.
+
+\bibitem{weyns2020introduction}
+D.~Weyns, An Introduction to Self-adaptive Systems: A Contemporary Software
+  Engineering Perspective, Wiley-IEEE Press, 2021.
+\newblock \href {https://doi.org/10.1002/9781119574910}
+  {\path{doi:10.1002/9781119574910}}.
+
+\bibitem{sanchez2020selfstar}
+M.~S{\'a}nchez, E.~Exposito, J.~Aguilar, Implementing self-* autonomic
+  properties in self-coordinated manufacturing processes for the {Industry 4.0}
+  context, Computers in Industry 121 (2020) 103247.
+\newblock \href {https://doi.org/10.1016/j.compind.2020.103247}
+  {\path{doi:10.1016/j.compind.2020.103247}}.
+
+\bibitem{sanchez2020jii}
+M.~S{\'a}nchez, E.~Exposito, J.~Aguilar, Autonomic computing in manufacturing
+  process coordination in {Industry 4.0} context, Journal of Industrial
+  Information Integration 19 (2020) 100159.
+\newblock \href {https://doi.org/10.1016/j.jii.2020.100159}
+  {\path{doi:10.1016/j.jii.2020.100159}}.
+
+\bibitem{xia2023towards}
+Y.~Xia, M.~Shenoy, N.~Jazdi, M.~Weyrich, Towards autonomous system: flexible
+  modular production system enhanced with large language model agents, in: 2023
+  IEEE 28th International Conference on Emerging Technologies and Factory
+  Automation (ETFA), 2023, pp. 1--8.
+\newblock \href {https://doi.org/10.1109/ETFA54631.2023.10275362}
+  {\path{doi:10.1109/ETFA54631.2023.10275362}}.
+
+\bibitem{li2026a4ps}
+M.~Li, Q.~Zhou, W.~Li, T.~Qu, M.~Yang, P.~Jiang, {A4PS}: Agentic {AI}-assisted
+  advanced planning and scheduling with large language models for smart
+  manufacturing, Journal of Manufacturing Systems 85 (2026) 207--226.
+\newblock \href {https://doi.org/10.1016/j.jmsy.2026.01.003}
+  {\path{doi:10.1016/j.jmsy.2026.01.003}}.
+
+\bibitem{lewis2020rag}
+P.~Lewis, E.~Perez, A.~Piktus, F.~Petroni, V.~Karpukhin, N.~Goyal,
+  H.~K{\"u}ttler, M.~Lewis, W.-t. Yih, T.~Rockt{\"a}schel, S.~Riedel, D.~Kiela,
+  Retrieval-augmented generation for knowledge-intensive {NLP} tasks, in:
+  Advances in Neural Information Processing Systems, Vol.~33, 2020, pp.
+  9459--9474.
+
+\bibitem{li2024genai}
+J.~Li, M.~Zhang, N.~Li, D.~Weyns, Z.~Jin, K.~Tei, Generative {AI} for
+  self-adaptive systems: State of the art and research roadmap, ACM
+  Transactions on Autonomous and Adaptive Systems 19~(3) (2024) 13:1--13:60.
+\newblock \href {https://doi.org/10.1145/3686803} {\path{doi:10.1145/3686803}}.
+
+\bibitem{li2024exploring}
+J.~Li, M.~Zhang, N.~Li, D.~Weyns, Z.~Jin, K.~Tei, Exploring the potential of
+  large language models in self-adaptive systems, in: Proceedings of the 19th
+  International Symposium on Software Engineering for Adaptive and
+  Self-Managing Systems (SEAMS), 2024, pp. 77--83.
+\newblock \href {https://doi.org/10.1145/3643915.3644088}
+  {\path{doi:10.1145/3643915.3644088}}.
+
+\bibitem{nascimento2023selfadaptive}
+N.~Nascimento, P.~Alencar, D.~Cowan, Self-adaptive large language model
+  ({LLM})-based multiagent systems, in: 2023 IEEE International Conference on
+  Autonomic Computing and Self-Organizing Systems Companion (ACSOS-C), 2023,
+  pp. 104--109.
+\newblock \href {https://doi.org/10.1109/ACSOS-C58168.2023.00048}
+  {\path{doi:10.1109/ACSOS-C58168.2023.00048}}.
+
+\bibitem{alves2026maper}
+L.~Alves, G.~L.~B. De~Oliveira, M.~Chagas, A.~Bandeira, P.~H. Maia, C.~Rocha,
+  {MAPER}: Extending {MAPE-K} with {LLM}-based reasoning to manage
+  unanticipated situations in self-adaptive systems, in: Proceedings of the
+  21st International Conference on Software Engineering for Adaptive and
+  Self-Managing Systems (SEAMS), 2026, pp. 239--250.
+\newblock \href {https://doi.org/10.1145/3788550.3794886}
+  {\path{doi:10.1145/3788550.3794886}}.
+
+\bibitem{sanchez2020survey}
+M.~S{\'a}nchez, E.~Exposito, J.~Aguilar, {Industry 4.0}: survey from a system
+  integration perspective, International Journal of Computer Integrated
+  Manufacturing 33~(10--11) (2020) 1017--1041.
+\newblock \href {https://doi.org/10.1080/0951192X.2020.1775295}
+  {\path{doi:10.1080/0951192X.2020.1775295}}.
+
+\bibitem{isa182}
+{International Society of Automation}, {ANSI/ISA-18.2-2016}: Management of
+  Alarm Systems for the Process Industries, International Society of
+  Automation, Research Triangle Park, NC, american National Standard (2016).
+
+\bibitem{isatr1826}
+{International Society of Automation}, {ISA-TR18.2.6-2012}: Alarm systems for
+  batch and discrete processes, Tech. rep., International Society of
+  Automation, Research Triangle Park, NC (2012).
+
+\bibitem{basseville1993detection}
+M.~Basseville, I.~V. Nikiforov, Detection of Abrupt Changes: Theory and
+  Application, Prentice Hall, 1993.
+
+\bibitem{thuan2026review}
+N.~D. Thuan, L.~H. Anh, Large language models for fault diagnosis in smart
+  manufacturing: A comprehensive review, Intelligent Systems with Applications
+  31 (2026) 200714.
+\newblock \href {https://doi.org/10.1016/j.iswa.2026.200714}
+  {\path{doi:10.1016/j.iswa.2026.200714}}.
+
+\bibitem{sadeqi2026hitl}
+M.~Sadeqi~Bajestani, D.~Mun, D.~B. Kim, Human-in-the-loop and large language
+  models in smart manufacturing: Current applications, challenges, and
+  perspectives, Journal of Manufacturing Systems 86 (2026) 913--941.
+\newblock \href {https://doi.org/10.1016/j.jmsy.2026.04.027}
+  {\path{doi:10.1016/j.jmsy.2026.04.027}}.
+
+\bibitem{qaid2026explainable}
+H.~A. A.~M. Qaid, B.~Zhang, S.~Su, D.~Li, S.-K. Ng, W.~Li, Large language
+  models for explainable fault diagnosis of machines, Engineering Applications
+  of Artificial Intelligence 163 (2026) 113131.
+\newblock \href {https://doi.org/10.1016/j.engappai.2025.113131}
+  {\path{doi:10.1016/j.engappai.2025.113131}}.
+
+\bibitem{li2026collaborative}
+R.~Li, C.~Chen, Y.~Liu, T.~Wang, H.~Shao, L.~Cheng, A collaborative approach
+  based on large language model and knowledge graphs for information
+  integration towards smart manufacturing, Engineering Applications of
+  Artificial Intelligence 176 (2026) 114785.
+\newblock \href {https://doi.org/10.1016/j.engappai.2026.114785}
+  {\path{doi:10.1016/j.engappai.2026.114785}}.
+
+\bibitem{zulu2026bridge}
+M.~Zulu, T.~Wang, A hybrid framework for intelligent bridge maintenance by
+  integrating deep learning and large language models, Engineering Applications
+  of Artificial Intelligence 182 (2026) 115818.
+\newblock \href {https://doi.org/10.1016/j.engappai.2026.115818}
+  {\path{doi:10.1016/j.engappai.2026.115818}}.
+
+\bibitem{liu2025generative}
+J.~Liu, W.~Hao, K.~Cheng, D.~Jin, Large language model-based planning agent
+  with generative memory strengthens performance in textualized world,
+  Engineering Applications of Artificial Intelligence 148 (2025) 110319.
+\newblock \href {https://doi.org/10.1016/j.engappai.2025.110319}
+  {\path{doi:10.1016/j.engappai.2025.110319}}.
+
+\bibitem{bosch2016kaggle}
+{Bosch}, Bosch production line performance, Kaggle competition dataset,
+  \url{https://www.kaggle.com/c/bosch-production-line-performance} (2016).
+
+\bibitem{qwen2024}
+{Qwen Team}, Qwen2.5 technical report, arXiv:2412.15115 (2024).
+
+\bibitem{ollama}
+{Ollama}, Ollama: run large language models locally, \url{https://ollama.com},
+  version 0.35.1 (2026).
+
+\bibitem{anthropic2026agentsdk}
+{Anthropic}, Claude agent sdk, \url{https://code.claude.com/docs/en/agent-sdk},
+  python package claude-agent-sdk 0.2.163 (2026).
+
+\bibitem{efron1993bootstrap}
+B.~Efron, R.~J. Tibshirani, An Introduction to the Bootstrap, Chapman \& Hall,
+  1993.
+
+\bibitem{wilcoxon1945}
+F.~Wilcoxon, Individual comparisons by ranking methods, Biometrics Bulletin
+  1~(6) (1945) 80--83.
+
+\bibitem{holm1979}
+S.~Holm, A simple sequentially rejective multiple test procedure, Scandinavian
+  Journal of Statistics 6~(2) (1979) 65--70.
+
+\end{thebibliography}

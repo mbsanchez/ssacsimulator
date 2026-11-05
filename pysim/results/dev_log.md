@@ -193,3 +193,7 @@ Solo reglas, sin llamadas a modelos. Diseño v2, detector por estación, mismos 
 ## 2026-10-18 — Resultado del punto 1 y análisis añadido a la vista de él
 
 La configuración del control de ráfagas mejor en las trazas reservadas, y también en las de validación, es `burst_ctx|size>=2` (vetar alarmas de ≥ 2 estaciones, con veto por carga), que en desarrollo quedaba por debajo de la elegida (+0,838 frente a +0,889). Frente a ella el margen del híbrido Fable desaparece en ambos conjuntos (`results/veto_controls2/summary.md`). Añadido después de ver este resultado, y por tanto no preespecificado: la misma configuración en todas las condiciones de sensibilidad y de causa común (`rules_burst2_ctx` en `results/sens_*/`, `results/commoncause/`).
+
+## 2026-11-05 — Distancia al mejor planificador (post hoc)
+
+Para la versión preparada para Engineering Applications of Artificial Intelligence se resume la tabla de sensibilidad con la distancia de cada planificador al mejor de cada condición (`shortfall.py`, `results/shortfall.md`). Es descriptivo y post hoc: pondera igual cada condición, depende de cuáles se incluyan y no lleva intervalos. No se ejecuta ningún modelo de lenguaje.
