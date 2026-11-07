@@ -1,0 +1,41 @@
+{
+  "runs": 10796,
+  "workers": 7,
+  "seconds": 842,
+  "dev": "test_cases_0-100m.td",
+  "held_out": [
+    "test_cases_100m-200m.td",
+    "test_cases_200m-300m.td",
+    "test_cases_500m-600m.td"
+  ],
+  "calibration": {
+    "test_cases_0-100m.td": "test_cases_100m-200m.td",
+    "test_cases_100m-200m.td": "test_cases_0-100m.td",
+    "test_cases_200m-300m.td": "test_cases_500m-600m.td",
+    "test_cases_500m-600m.td": "test_cases_200m-300m.td"
+  },
+  "windows": [
+    60.0,
+    120.0,
+    180.0,
+    240.0,
+    360.0
+  ],
+  "alphas": [
+    0.01,
+    0.001,
+    0.0001
+  ],
+  "histories": [
+    720.0,
+    1440.0,
+    2880.0
+  ],
+  "default": {
+    "window_min": 120.0,
+    "alpha": 0.001,
+    "history_min": 1440.0
+  },
+  "fault_factor": 3.0,
+  "fault_offset_min": 600.0
+}

@@ -1,0 +1,64 @@
+{
+  "runs": 8160,
+  "workers": 7,
+  "quick": false,
+  "seconds": 1451,
+  "central": {
+    "factor": 3.0,
+    "repair_min": 60.0,
+    "alpha": 0.5,
+    "mode": "contingency",
+    "contingency_factor": 1.5
+  },
+  "oat": {
+    "factor": [
+      1.5,
+      5.0
+    ],
+    "repair_min": [
+      15.0,
+      240.0
+    ],
+    "alpha": [
+      0.0,
+      1.0
+    ],
+    "mode": [
+      "stop"
+    ]
+  },
+  "traces": {
+    "test_cases_0-100m.td": "test_cases_100m-200m.td",
+    "test_cases_100m-200m.td": "test_cases_0-100m.td",
+    "test_cases_200m-300m.td": "test_cases_500m-600m.td",
+    "test_cases_500m-600m.td": "test_cases_200m-300m.td"
+  },
+  "stations_twin": [
+    "L0_S2",
+    "L0_S4",
+    "L0_S6",
+    "L3_S35"
+  ],
+  "stations_no_twin": [
+    "L0_S1",
+    "L0_S8",
+    "L3_S29",
+    "L3_S33"
+  ],
+  "detectors": [
+    "processing"
+  ],
+  "processing_params": {
+    "window": 10,
+    "alpha": 0.001,
+    "refractory_min": 6.0
+  },
+  "min_fault_cost": 1000.0,
+  "effect_model": "additive, scaled by tau_S",
+  "design": "v2",
+  "horizons_min": [
+    480.0,
+    1440.0
+  ],
+  "primary_horizon_min": 1440.0
+}

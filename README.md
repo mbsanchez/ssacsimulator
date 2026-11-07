@@ -1,0 +1,61 @@
+# SSACSimulator
+
+Simulator of a self-coordinated manufacturing line with self-* (autonomic) properties, over the Bosch Production Line Performance dataset, and the code, results and manuscript of:
+
+> *A retrieval-augmented language-model veto over statistical change detection for closed-loop fault repair on a manufacturing line.* Manuscript under anonymous review.
+
+The original 2020 simulator (Qt/C++) is described in the papers cited in the manuscript (see `paper/refs.bib`).
+
+## Contents
+
+| Path | What it is |
+|---|---|
+| `SSACSimulator/`, `QGVCore/`, `SSACSimulator.pro`, `CMakeLists.txt` | The original 2020 Qt/C++ simulator (Monitor and Analyze only). |
+| `pysim/` | Headless Python port of the simulator, the closed MAPE-K loop (action space, symbolic validator, fault injection, effect model), the rule-based and LLM planners, and the experiment scripts. See `pysim/README.md` (in Spanish). |
+| `pysim/results/` | Every result reported in the paper: per-run rows, per-LLM-call decisions with the model's stated reasons, summaries, statistics, and the development log of every prompt version. |
+| `paper/` | LaTeX source of the manuscript (`main.tex`) and `figures.py` (regenerates every figure from `pysim/results/`). |
+| `DataSets I4.0/PreProcess/` | The 2020 preprocessing scripts that derive the process model and event traces from the Bosch dataset. |
+
+## Data
+
+The study uses the [Bosch Production Line Performance](https://www.kaggle.com/c/bosch-production-line-performance) dataset, distributed by Kaggle under the competition's rules. **This repository does not redistribute it, nor the files derived from it.** To rerun the simulations, download the dataset from Kaggle, derive the process model and traces with the scripts in `DataSets I4.0/PreProcess/` (the five validation traces with `make_traces.py`), and place them in `DataSets I4.0/` (or point the environment variable `SSAC_DATA` to their folder). The files used in the paper are:
+
+| File | Bytes | SHA-256 |
+|---|---:|---|
+| `bosch_pl_tm_model.pg` | 6 652 | `0c4872c41a35b8e505b58d8507ff9a06cd70a0d40172090f99c44fedaa2a965f` |
+| `process_graph_trimmed_mean.pg` | 6 651 | `895a11df5ba36f3ffe6c8b96074e930b7e4d857b91e47a69d2b67fa4a2b24170` |
+| `test_cases_0-100m.td` | 3 427 616 | `4363970b562b0a4e9cc4905512c69b5989bb8adbaa9e5d299dcf32cef47546a7` |
+| `test_cases_100m-200m.td` | 3 506 005 | `3f277e50f59bcdb14a4ba7a638ca9e22cbe75c60fbd8f6fb6f6cc71c62e5677b` |
+| `test_cases_200m-300m.td` | 3 619 078 | `b8bbdd864dcbd11dcc74cf7e41312c38732cc35262238c294c9add826128bdec` |
+| `test_cases_500m-600m.td` | 3 626 343 | `df4304d73bae96196743d2065c41b5fc6b94c4330f3582e36913266982ced770` |
+| `test_cases_300m-400m.td` (validation) | 3 731 080 | `19f05fb4f97ce95a2112c3e49a8a8ead7d6353a27405bb58928b28d41be27526` |
+| `test_cases_400m-500m.td` (validation) | 3 699 621 | `eebba9887b0883ba41ae53456bed9d516b6d1b8889a50626c6e02b21e687cf13` |
+| `test_cases_600m-700m.td` (validation) | 3 704 531 | `3aeaa2ff1f413c8d86898dd7f9ddbdb3579cc622a546a059848ccc7f69cfde8a` |
+| `test_cases_700m-800m.td` (validation) | 3 716 978 | `c07ffab4cab4c16da22b69419abcaf0c9fe5b3370322acc614307e2fef586931` |
+| `test_cases_800m-900m.td` (validation) | 3 710 217 | `6d0d49a2773e82e6eedca151085d69a407e0f4bd3766ea7f4e3fe836787f8443` |
+
+The derived files are available from the corresponding author on request, to holders of the Kaggle dataset.
+
+**Without the data** you can still recompute every table, statistic and figure of the paper from the stored results:
+
+```sh
+cd pysim && python3 -m venv .venv && .venv/bin/pip install scipy matplotlib pytest
+.venv/bin/python paper_tables.py                     # results/paper_tables.md: every number of the paper's tables
+.venv/bin/python stats.py --dir results/processing --a hybrid:fable-5.1 \
+    --b rules_adapt_ctx rules_adapt rules_cal hybrid llm_c2:fable-5.1   # paired statistics
+.venv/bin/python trace_bootstrap.py results/processing   # trace-level uncertainty
+.venv/bin/python compare_retuned.py                    # hybrids against re-tuned rules
+cd ../paper && ../pysim/.venv/bin/python figures.py
+```
+
+and run the tests that do not need the data (`.venv/bin/pytest tests`; those that need it are skipped).
+
+Results layout (evaluation design v2, see `pysim/results/dev_log.md`): `pysim/results/processing/` holds the main results, with the per-station detector; `pysim/results/` the same evaluation with the legacy detector; `pysim/results/v1/` the first, superseded design.
+
+**With the data**: `detector_dev.py`, `rule_sweep.py --analyze processing`, `sweep.py --analyze processing` and `detection_rates.py` rerun the rule-based experiments in minutes to an hour. The LLM experiments (`llm_sweep.py --analyze processing`, `dev_llm.py`) need a local Ollama server with `qwen2.5:7b`, or the Claude Agent SDK for Claude Fable 5.1; their decisions are not bit-reproducible, which is why every decision and stated reason is stored in `pysim/results/**/llm_sweep_calls.csv`.
+
+The simulator itself uses only the Python standard library; the statistics and figures use SciPy and matplotlib.
+
+## License
+
+LGPL-3.0, see `LICENSE.txt`.

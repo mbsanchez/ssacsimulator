@@ -1,0 +1,199 @@
+# Registro de desarrollo de los planificadores LLM
+
+Protocolo: el prompt y el contexto recuperado se iteran **solo** sobre la traza
+`test_cases_0-100m.td`. Las trazas 100m-200m, 200m-300m y 500m-600m quedan
+reservadas para la evaluación final, con el prompt congelado. Cada entrada
+registra una versión probada; ninguna se borra.
+
+Caso central: fallo x3 desde t₀ + 600 min, reparación 60 min, α = 0,5,
+contingencia, detector legacy. Calibración de tasas base sobre 100m-200m.
+
+## 2026-10-05 — prompt v1, model qwen2.5:7b, trace test_cases_0-100m.td
+
+Primera versión. Solo dos casos, ejecutados a mano (antes de existir `dev_llm.py`).
+
+| Caso | rules_cal | rules_adapt | rules_twin | c1 | c2 |
+|---|---|---|---|---|---|
+| L0_S2 step | +0.73 · 35 FP | -0.01 · 4 FP | +0.78 · 26 FP | +0.80 · 26 FP | +0.74 · 48 FP |
+| L3_S29 step | +0.65 · 37 FP | +0.82 · 6 FP | -0.19 · 32 FP | -0.16 · 32 FP | +0.65 · 49 FP |
+
+Observaciones que motivan la v2:
+- C1 reproduce exactamente el control `rules_twin`: actúa solo donde hay gemela libre.
+- C2 detecta el fallo sin gemela que C1 ignora, pero empata con `rules_cal` con más falsos positivos.
+- C2 repara estaciones que él mismo describe como sanas; invierte la regla sobre reparaciones sin efecto; afirma gemelas inexistentes; toma por "tasa alta" una alarma en las 2 primeras horas.
+
+## 2026-10-05 11:25 — prompt v2, model qwen2.5:7b, trace test_cases_0-100m.td
+
+v2: veredicto obligatorio por estación antes de la acción (el código descarta acciones incoherentes); historia insuficiente < 8 h; alarmas observadas frente a esperadas en 2 h y 24 h; resultado de reparaciones digerido; estado de la gemela dentro del bloque de cada estación.
+
+| Caso | rules_cal | rules_adapt | rules_twin | c2 |
+|---|---|---|---|---|
+| fault-free | 284/h · 36 FP | 26/h · 4 FP | 214/h · 27 FP | 165/h · 22 FP |
+| L0_S2 step | +0.73 · 35 FP | -0.02 · 4 FP | +0.78 · 26 FP | +0.82 · 21 FP |
+| L3_S29 step | +0.65 · 37 FP | +0.82 · 6 FP | -0.19 · 32 FP | +0.76 · 24 FP |
+| L0_S8 drift | +0.77 · 37 FP | +0.94 · 6 FP | -0.17 · 32 FP | +0.86 · 20 FP |
+
+Fault-free: false-alarm cost in piece-minutes per hour. Faults: recovery vs. no action. FP = repairs of healthy stations.
+
+- c2: 171 calls, verdicts {'insufficient_evidence': 630, 'degraded': 115, 'normal': 120, 'self_inflicted': 49}, problems {'no free twin': 16}
+
+Observaciones sobre la v2:
+- C2 supera a `rules_cal` en los cuatro casos y reduce a la mitad los falsos positivos de la v1 (48 → 21 en L0_S2). Es el único planificador sin ningún caso malo (peor: +0.76; `rules_adapt` cae a −0.02 en L0_S2).
+- `rules_adapt` sigue siendo el más preciso sin fallo (26/h frente a 165/h) y el mejor en L3_S29 y L0_S8.
+- **En L0_S2 los aciertos no son detecciones.** C2 obtuvo sus 41 respuestas de la caché de la corrida sin fallo: recibió los mismos prompts con y sin fallo, así que su reparación de L0_S2 fue de rutina. `rules_cal` y `rules_twin` hacen también el mismo número de acciones que sin fallo. El detector legacy apenas ve este fallo. De aquí sale la métrica de **acierto específico** de `llm_sweep.py`.
+- 630 de 914 veredictos son "insufficient_evidence", sobre todo durante las 8 h iniciales sin historia.
+- Rendimiento: ~19 s por llamada nueva con prompts de ~1.900 tokens, con la máquina en presión de memoria (9,5 GB de swap). Sin truncado: prompt máximo 3.261 tokens < 4.096.
+
+## 2026-10-06 06:49 — prompts (hybrid: v2+h1), model qwen2.5:7b, trace test_cases_0-100m.td
+
+h1: híbrido. La regla adaptativa selecciona las estaciones; el LLM (contexto de C2 + sufijo h1) confirma o veta y elige la acción. Una estación vetada no se reconsulta durante 120 min. Control nuevo: rules_adapt_ctx (adaptativa que no actúa sobre estaciones que reciben carga desviada).
+
+| Caso | rules_cal | rules_adapt | rules_twin | rules_adapt_ctx | hybrid |
+|---|---|---|---|---|---|
+| fault-free | 284/h · 36 FP | 26/h · 4 FP | 214/h · 27 FP | 18/h · 2 FP | 8/h · 1 FP |
+| L0_S2 step | +0.73 · 35 FP | -0.02 · 4 FP | +0.78 · 26 FP | -0.01 · 2 FP | -0.01 · 1 FP |
+| L3_S29 step | +0.65 · 37 FP | +0.82 · 6 FP | -0.19 · 32 FP | +0.83 · 5 FP | +0.84 · 4 FP |
+| L0_S8 drift | +0.77 · 37 FP | +0.94 · 6 FP | -0.17 · 32 FP | +0.94 · 5 FP | +0.94 · 5 FP |
+
+Fault-free: false-alarm cost in piece-minutes per hour. Faults: recovery vs. no action. FP = repairs of healthy stations.
+
+- hybrid: 17 calls, verdicts {'degraded': 16, 'self_inflicted': 4}, problems none
+
+## 2026-10-06 09:42 — prompts (hybrid: v2+h1, c2: v2), model claude-fable-5-1, trace test_cases_0-100m.td
+
+Piloto con Claude Fable 5.1 vía Agent SDK (plan Max), effort low. Prompts v2 / v2+h1 congelados, sin reajuste para este modelo. Objetivo: comparar con Qwen en desarrollo y medir el consumo de la cuota semanal de Fable (1% antes del piloto).
+
+| Caso | rules_cal | rules_adapt | rules_twin | rules_adapt_ctx | hybrid | c2 |
+|---|---|---|---|---|---|---|
+| fault-free | 284/h · 36 FP | 26/h · 4 FP | 214/h · 27 FP | 18/h · 2 FP | 0/h · 0 FP | 179/h · 25 FP |
+| L0_S2 step | +0.73 · 35 FP | -0.02 · 4 FP | +0.78 · 26 FP | -0.01 · 2 FP | +0.00 · 0 FP | +0.81 · 24 FP |
+| L3_S29 step | +0.65 · 37 FP | +0.82 · 6 FP | -0.19 · 32 FP | +0.83 · 5 FP | +0.84 · 4 FP | +0.76 · 25 FP |
+| L0_S8 drift | +0.77 · 37 FP | +0.94 · 6 FP | -0.17 · 32 FP | +0.94 · 5 FP | +0.95 · 4 FP | +0.87 · 22 FP |
+
+Fault-free: false-alarm cost in piece-minutes per hour. Faults: recovery vs. no action. FP = repairs of healthy stations.
+
+- hybrid: 15 calls, verdicts {'insufficient_evidence': 3, 'normal': 3, 'degraded': 10}, problems none
+- c2: 151 calls, verdicts {'insufficient_evidence': 566, 'degraded': 99, 'self_inflicted': 84, 'normal': 21}, problems none
+- backend agent-sdk, effort low: 166 calls (92 cached), API-equivalent cost $33.83, retries 0
+
+> **Entrada anterior INVÁLIDA (piloto Fable 5.1).** El Agent SDK cargaba los conectores MCP de la cuenta de claude.ai (Atlassian, Google Drive, etc.) en cada llamada: ~19.000 tokens de definiciones de herramientas ajenas al experimento, visibles para el modelo. Se corrige con `--strict-mcp-config` sin configuración MCP (`ssac/agent_sdk_client.py`, harness `strict-mcp-v1`, incluido en la clave de caché para que ninguna respuesta contaminada se reutilice). Coste equivalente por llamada: ~$0,46 → ~$0,025. Sus cifras no se usan; el piloto se repite a continuación.
+
+## 2026-10-06 10:00 — prompts (hybrid: v2+h1, c2: v2), model claude-fable-5-1, trace test_cases_0-100m.td
+
+Piloto Fable 5.1 REPETIDO con harness limpio (strict-mcp-v1: sin conectores MCP). Prompts v2 / v2+h1 congelados, effort low.
+
+| Caso | rules_cal | rules_adapt | rules_twin | rules_adapt_ctx | hybrid | c2 |
+|---|---|---|---|---|---|---|
+| fault-free | 284/h · 36 FP | 26/h · 4 FP | 214/h · 27 FP | 18/h · 2 FP | 9/h · 1 FP | 158/h · 22 FP |
+| L0_S2 step | +0.73 · 35 FP | -0.02 · 4 FP | +0.78 · 26 FP | -0.01 · 2 FP | -0.01 · 1 FP | +0.81 · 21 FP |
+| L3_S29 step | +0.65 · 37 FP | +0.82 · 6 FP | -0.19 · 32 FP | +0.83 · 5 FP | +0.84 · 3 FP | +0.78 · 22 FP |
+| L0_S8 drift | +0.77 · 37 FP | +0.94 · 6 FP | -0.17 · 32 FP | +0.94 · 5 FP | +0.95 · 4 FP | +0.88 · 22 FP |
+
+Fault-free: false-alarm cost in piece-minutes per hour. Faults: recovery vs. no action. FP = repairs of healthy stations.
+
+- hybrid: 15 calls, verdicts {'normal': 4, 'degraded': 11, 'insufficient_evidence': 1}, problems none
+- c2: 170 calls, verdicts {'insufficient_evidence': 853, 'degraded': 90, 'self_inflicted': 40, 'normal': 38}, problems none
+- backend agent-sdk, effort low: 185 calls (102 cached), API-equivalent cost $7.74, retries 0
+
+## 2026-10-11 — Diseño de evaluación v2 (registrado antes de ejecutar ningún LLM con él)
+
+**Motivo.** Una auditoría adversarial del diseño de evaluación mostró que el diseño v1 premia reparaciones rutinarias que coinciden con el instante fijo del fallo: (a) todo fallo se inyectaba 600 min después del primer evento, justo después del calentamiento de 8 h de la memoria de C2, que concentra ahí una ráfaga de reparaciones (C2-Fable hace 21 de sus 33 reparaciones sin fallo de 100m-200m en [t0−120, t0+240]); (b) una reparación eliminaba también los fallos iniciados *durante* ella (C2-Fable repara L0_S1 en 200m-300m 12 min antes del fallo y el fallo no cuesta nada). Sin los 3 escenarios afectados, Δ(C2-Fable − adaptativa+veto) pasa de +0,043 a +0,016. Una comprobación solo con reglas (`onset_probe.py`, `results/onset_probe.md`) muestra además que la recuperación sobre la traza completa depende fuertemente del instante del fallo (adaptativa+veto: +0,54 con inicio a 600 min, +0,19 con inicios aleatorios).
+
+**Qué no cambia.** Prompts (v2, v2+h1), modelos, planificadores, hiperparámetros por defecto de las reglas, estaciones, formas y severidad (k=3), trazas reservadas y calibración cruzada. Ningún prompt se modifica.
+
+**Qué cambia (v2).**
+1. *Regla de reparación*: una reparación elimina solo los fallos ya activos cuando empieza (`EffectModel.repair_clears="active_at_start"`, nuevo valor por defecto).
+2. *Inicio del fallo*: 3 inicios por (traza, estación, forma), uniformes entre 24 h después del primer evento y 24 h antes del último, generados con una semilla derivada del nombre del escenario (`ssac/onsets.py`). 216 escenarios con fallo en las reservadas (antes 72).
+3. *Métrica primaria*: recuperación agregada en un horizonte de 24 h tras el inicio del fallo, sobre el retraso añadido a las transiciones que ocurren en [t0, t0+24 h). Secundaria: la misma con 8 h (un turno). La recuperación sobre la traza completa deja de calcularse para los escenarios con fallo, porque cada corrida se detiene en t0+24 h.
+4. *Reparaciones falsas, aciertos y latencia*: contados dentro del horizonte de 24 h.
+5. *Coste de falsas alarmas*: sin cambios (corridas sin fallo, traza completa).
+6. *Reglas reajustadas*: la rejilla se vuelve a seleccionar en la traza de desarrollo con el diseño v2.
+7. *Estadística*: estimando primario la diferencia de recuperación a 24 h con bootstrap estratificado por traza; secundarios, Wilcoxon emparejado por escenario y bootstrap de dos niveles por traza.
+
+Los resultados v1 quedan en el historial de git (etiqueta `design-v1`).
+
+## 2026-10-11 — Diseño v2, enmienda: el detector heredado no ve los fallos fuera del arranque
+
+**Hallazgo (barrido de reglas v2, `results/rule_sweep_summary.md`).** El detector de estaciones heredado concentra sus alarmas en las primeras ~24 h de cada traza (alarmas por bloque de 12 h sin fallo: 0-100m 30, 9, 0, 0, 0; 100m-200m 63, 18, 0, 0, 0, 2, …) y un fallo ×3 inyectado después apenas añade alarmas, y tarde. En la traza de desarrollo no hay ninguna alarma tras las 24 h, así que la selección de reglas en desarrollo del diseño v2 es degenerada (todas las configuraciones dan 0). Con el detector heredado y el diseño v2, ninguna regla recupera más de +0,04 a 24 h en las reservadas. Los resultados v1 dependían de inyectar el fallo dentro de la ráfaga de alarmas de arranque.
+
+**Decisión (antes de ver ningún resultado con el detector nuevo).** Se mantiene el diseño v2 y se añade un Analyze por estación (`detectors=("legacy", "processing")`):
+- por estación, solo transiciones en régimen de proceso (≤ 60 min) que salen de ella;
+- referencia causal: percentil 75 de esas transiciones en las 24 h anteriores a la ventana reciente, y tasa nula p0 de superarlo en esa misma historia;
+- prueba: binomial de una cola sobre las superaciones entre las últimas N transiciones; alarma si p < α;
+- calentamiento de 8 h; una alarma STATION_DEGRADED por lote de eventos con todas las estaciones marcadas; una estación no se repite antes de 60 min;
+- N y α se eligen solo en la traza de desarrollo.
+Los planificadores no cambian. Las tasas base de C2 y de la regla calibrada se recalculan con el detector nuevo, con la misma calibración cruzada. El prompt v2 describe el detector heredado; la versión v3 solo cambia esa descripción y se prueba en desarrollo antes de congelarse. Los resultados v2 con el detector heredado se conservan como punto de partida. Fable: C2 y el híbrido primero; C1 al final según los resultados.
+
+## 2026-10-11 14:53 — prompts (c1: v3, c2: v3, hybrid: v3+h1, detector processing, design v2), model qwen2.5:7b, trace test_cases_0-100m.td
+
+Prompt v3 (solo cambia la descripción del Analyze) con el detector por estación elegido en desarrollo (results/detector_choice.json), diseño v2: primer inicio de cada caso, horizonte 24 h. Prueba de que v3 funciona antes de congelarlo.
+
+| Caso | rules_cal | rules_adapt | rules_twin | rules_adapt_ctx | c1 | c2 | hybrid |
+|---|---|---|---|---|---|---|---|
+| fault-free | 197/h · 26 FP | 76/h · 11 FP | 359/h · 44 FP | 78/h · 11 FP | 341/h · 46 FP | 586/h · 76 FP | 63/h · 10 FP |
+| L0_S2 step | +0.88 · 20 FP | +0.91 · 10 FP | +0.78 · 35 FP | +0.92 · 8 FP | +0.66 · 39 FP | +0.57 · 57 FP | +0.94 · 8 FP |
+| L3_S29 step | +0.82 · 20 FP | +0.87 · 11 FP | -0.30 · 38 FP | +0.86 · 11 FP | +0.70 · 39 FP | +0.27 · 61 FP | +0.88 · 10 FP |
+| L0_S8 drift | +0.87 · 22 FP | +0.92 · 11 FP | -0.24 · 40 FP | +0.91 · 11 FP | +0.75 · 44 FP | +0.42 · 68 FP | +0.93 · 10 FP |
+
+Fault-free: false-alarm cost in piece-minutes per hour. Faults: recovery vs. no action. FP = repairs of healthy stations.
+
+- c1: 530 calls, verdicts {'insufficient_evidence': 129, 'normal': 488, 'degraded': 173, 'self_inflicted': 41}, problems {'no free twin': 18}
+- c2: 337 calls, verdicts {'insufficient_evidence': 240, 'degraded': 272, 'self_inflicted': 36, 'normal': 16}, problems {'no free twin': 49}
+- hybrid: 45 calls, verdicts {'degraded': 41, 'self_inflicted': 8}, problems none
+
+## 2026-10-15 — Experimentos adicionales, registrados antes de ejecutarlos
+
+Motivo: el diseño tiene dos huecos: (i) no hay sensibilidad de los planificadores LLM al modelo de efectos y (ii) el contraste entre detectores del §7.5 no aísla el mecanismo de los vetos, porque cambian a la vez el detector, el párrafo del prompt que lo describe y la pista de las ráfagas. Ningún parámetro, prompt ni planificador existente cambia; todo se ejecuta en las tres trazas reservadas, diseño v2, horizonte 24 h, los mismos 216 escenarios.
+
+1. **Sensibilidad, fallo leve (k = 1,5).** Detector por estación, configuración elegida. Planificadores: sin acción, las reglas por defecto, híbrido Qwen, híbrido Fable. Resultados en `results/sens_k1.5/`.
+2. **Ablaciones del veto (híbrido Fable).** Planificador y conocimiento recuperado iguales; solo cambia lo indicado:
+   - (a) detector por estación, prompt v3 **sin** la pista «a burst of alarms shared by many stations at once» → `results/ablation_nocue/`;
+   - (b) detector por estación con el párrafo de alarmas **v2** (el del detector heredado) → `results/ablation_v2text/`;
+   - (c) detector **heredado** con el párrafo de alarmas **v3** → `results/ablation_legacy_v3text/`.
+   Medida principal: recuperación a 24 h; secundarias: llamadas con veto, vetos de la estación averiada y razones codificadas con la misma regla.
+
+## 2026-10-15 — Validación en trazas nuevas (C), registrada antes de generarlas
+
+**Origen.** Ficheros `test_date.csv` de la competición Kaggle *Bosch Production Line Performance*. `DataSets I4.0/PreProcess/make_traces.py` es un port a Python 3 de `PreProcessTestData.py` y `createTestFileChunk.py`; regenera las cuatro trazas existentes fila a fila y en el mismo orden (salvo la columna `prediction`, que sin el modelo de Keras de 2020 vale −1 en todas las filas y solo alimenta el detector de fallos predichos, que no usa ningún planificador).
+
+**Trazas nuevas.** Las cinco primeras porciones de 100 000 eventos no usadas, en orden: 300m–400m, 400m–500m, 600m–700m, 700m–800m y 800m–900m. Se descarta, sin sustituirla, una traza que dure menos de 48 h (no admite los márgenes de 24 h del diseño v2) o en la que alguna de las ocho estaciones no tenga transiciones de proceso.
+
+**Todo congelado.** Diseño v2, los mismos 8 estaciones × 3 formas × 3 inicios (semilla por nombre de escenario), horizonte de 24 h, detector por estación con `results/detector_choice.json`, prompts v3 y v3+h1, modelos y caché como en la evaluación reservada. Tasas base de la regla calibrada y de C2: aprendidas en la traza de desarrollo (0–100m), sin fallos.
+
+**Planificadores.** Sin acción; reglas calibrada, adaptativa, adaptativa + veto y solo gemelas con sus valores por defecto; las reglas reajustadas en desarrollo (calibrada `w=240 a=1e-4`; adaptativa + veto `w=240 a=1e-3 h=1440`); híbrido Qwen; híbrido Fable. C2 Fable, si la cuota lo permite, después.
+
+**Medidas.** Primaria: recuperación a 24 h y, por la objeción de los escenarios sin coste, también la recuperación sobre los escenarios cuyo coste sin acción es positivo, con la descomposición fallo / acciones. Estadística: diferencia híbrido Fable − mejor regla con bootstrap estratificado y por trazas (ahora 5 conglomerados).
+
+## 2026-10-16 — Nota sobre el periodo refractario (añadida a posteriori)
+
+La enmienda del 11-10 fijaba un periodo refractario de 60 min. Antes de seleccionar el detector en desarrollo se añadió el refractario a la rejilla (6, 30 y 60 min; `detector_dev.py`, `results/detector_dev.md`), porque con 60 min una estación no puede acumular las 3 alarmas en 120 min que exigen las reglas. Se eligió 6 min en la traza de desarrollo. Este cambio no se registró entonces; se deja constancia aquí.
+
+## 2026-10-16 — Controles del veto, sensibilidad de los híbridos, validación de C2 y réplicas (registrados antes de ejecutarlos)
+
+Diseño v2, detector por estación (`results/detector_choice.json`), prompts congelados (v3, v3+h1). Ningún parámetro existente cambia.
+
+1. **Controles del veto, solo reglas.** Sobre el test adaptativo que propone los candidatos del híbrido:
+   - (a) *veto por ráfaga*: se veta un candidato si la alarma nombra ≥ m estaciones, o si en los últimos W min han alarmado ≥ m estaciones distintas; con y sin veto por carga; un candidato vetado no se reexamina en 120 min (como el híbrido). Rejilla: tamaño de alarma m ∈ {2, 3, 4, 6}; línea W ∈ {30, 120} min × m ∈ {3, 5, 8}. Se elige en la traza de desarrollo por la recuperación a 24 h.
+   - (b) *veto aleatorio* a la tasa por candidato del híbrido Fable en las reservadas, con la misma suspensión de 120 min; 5 semillas, se presenta la media.
+   - (c) *solo la suspensión*: sin vetos no hay suspensión, así que coincide con la regla adaptativa (ya presentada).
+   Se evalúan en las tres trazas reservadas y en las cinco de validación. Resultados en `results/veto_controls/`.
+2. **Sensibilidad de los híbridos (Fable y Qwen)** en las trazas reservadas, cambiando un parámetro cada vez: k = 5; reparación de 15 min; α = 0; reparación de 240 min; modo parada; α = 1 (en este orden). Con las reglas por defecto y reajustadas en cada condición. Resultados en `results/sens_*/`.
+3. **C2 sobre Fable en las cinco trazas de validación** → `results/newtraces/`.
+4. **Fallos de causa común**: el mismo fallo, a la vez, en las cuatro estaciones con gemela o en las cuatro sin gemela; 2 grupos × 3 formas × 3 inicios por traza reservada (54 escenarios). Reglas e híbridos. → `results/commoncause/`.
+5. **Réplicas del híbrido Fable sin reutilizar respuestas** de la evaluación reservada: 3 réplicas, cada una con su propia clave de almacén (las llamadas idénticas dentro de una réplica sí se reutilizan). → `results/replica_{1,2,3}/`.
+6. **Análisis sin modelo** sobre lo almacenado: probabilidad de veto según el número de estaciones de la alarma (estación averiada frente a sanas); bootstrap por conglomerados traza × estación; distribución de la recuperación por escenario; acierto específico (±60/120/240 min); variante con un coste fijo por intervención.
+
+## 2026-10-18 — Cota superior del control de ráfagas y control con exceso sostenido (registrados antes de ejecutarlos)
+
+Solo reglas, sin llamadas a modelos. Diseño v2, detector por estación, mismos escenarios.
+
+1. **Todas las configuraciones del control de ráfagas** (las 20 de la rejilla de `veto_controls.py`, con y sin veto por carga) en las tres trazas reservadas y las cinco de validación. Se presentan su distribución y, como cota superior que ningún protocolo honesto podría seleccionar, la mejor configuración en las trazas reservadas y su margen frente al híbrido Fable.
+2. **Control de ráfagas anulado por exceso sostenido.** El control de ráfagas con veto por carga elegido (alarma de ≥ 3 estaciones), pero sin vetar un candidato cuyas alarmas de las últimas 24 h sean al menos R veces las que predice su tasa base sin fallos (la misma estadística que recibe el LLM; tasas base con la misma calibración cruzada que C2; si la tasa base es 0 se toma 1 alarma esperada). R ∈ {1,5; 2; 3; 5; 10}, elegido en la traza de desarrollo por la recuperación a 24 h. Se evalúa en las ocho trazas. Resultados en `results/veto_controls2/`.
+
+## 2026-10-18 — Resultado del punto 1 y análisis añadido a la vista de él
+
+La configuración del control de ráfagas mejor en las trazas reservadas, y también en las de validación, es `burst_ctx|size>=2` (vetar alarmas de ≥ 2 estaciones, con veto por carga), que en desarrollo quedaba por debajo de la elegida (+0,838 frente a +0,889). Frente a ella el margen del híbrido Fable desaparece en ambos conjuntos (`results/veto_controls2/summary.md`). Añadido después de ver este resultado, y por tanto no preespecificado: la misma configuración en todas las condiciones de sensibilidad y de causa común (`rules_burst2_ctx` en `results/sens_*/`, `results/commoncause/`).
+
+## 2026-11-05 — Distancia al mejor planificador (post hoc)
+
+Para la versión preparada para Engineering Applications of Artificial Intelligence se resume la tabla de sensibilidad con la distancia de cada planificador al mejor de cada condición (`shortfall.py`, `results/shortfall.md`). Es descriptivo y post hoc: pondera igual cada condición, depende de cuáles se incluyan y no lleva intervalos. No se ejecuta ningún modelo de lenguaje.

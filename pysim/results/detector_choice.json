@@ -1,0 +1,5 @@
+{
+  "window": 10,
+  "alpha": 0.001,
+  "refractory_min": 6.0
+}
